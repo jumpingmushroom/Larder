@@ -37,6 +37,11 @@ namespace Larder
             Logger.LogInfo(PluginName + " " + PluginVersion + " loaded.");
         }
 
+        private void Update()
+        {
+            Core.Runtime.Tick();
+        }
+
         private void OnDestroy()
         {
             if (_harmony != null)
