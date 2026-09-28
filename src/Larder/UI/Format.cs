@@ -96,5 +96,79 @@ namespace Larder.UI
                 return null;
             return FoodCatalog.ItemName(item.m_shared.m_consumeStatusEffect.m_name);
         }
+
+        public static string Cook(PlanView v)
+        {
+            if (v.Cook.Ready == null && v.Cook.Almost == null)
+                return v.Combo.Count > 0 ? C(Dim, "Nothing you can cook improves this combo.") : "";
+            var sb = new StringBuilder();
+            if (v.Cook.Ready != null)
+            {
+                sb.Append("<b>Cook next</b>\n");
+                Suggestion(sb, v.Cook.Ready, v);
+            }
+            if (v.Cook.Almost != null)
+            {
+                if (sb.Length > 0)
+                    sb.Append('\n');
+                sb.Append("<b>If you had…</b>\n");
+                Suggestion(sb, v.Cook.Almost, v);
+            }
+            return sb.ToString();
+        }
+
+        private static void Suggestion(StringBuilder sb, CookSuggestion c, PlanView v)
+        {
+            Core.Model.Totals t = Core.Model.Totals.Of(c.Combo, v.Planned.Health - Sum(v.Combo, 0), v.Planned.Stamina - Sum(v.Combo, 1));
+            sb.Append(c.Dish.Food.Name).Append("  →  ").Append(Stats(t.Health, t.Stamina, t.Eitr))
+              .Append(C(Dim, "  (" + Delta(t.Health - v.Planned.Health, "hp") + Delta(t.Stamina - v.Planned.Stamina, "st") +
+                  Delta(t.Eitr - v.Planned.Eitr, "eitr") + ")")).Append('\n');
+            Producer via = c.Plan.Root.Via;
+            sb.Append("<indent=1em>").Append(Station(via, c.Plan.Root.StationMissing)).Append("</indent>\n");
+            Steps(sb, c.Plan.Root, 1);
+            foreach (StationNeed n in c.Plan.MissingStations)
+            {
+                if (n.StationId != via.StationId)
+                    sb.Append("<indent=1em>").Append(C(Bad, "needs " + FoodCatalog.StationName(n.StationId) + " level " + n.Level)).Append("</indent>\n");
+            }
+        }
+
+        private static float Sum(List<FoodStats> foods, int stat)
+        {
+            float s = 0f;
+            foreach (FoodStats f in foods)
+                s += stat == 0 ? f.Health : f.Stamina;
+            return s;
+        }
+
+        private static string Delta(float d, string unit)
+        {
+            if (d > -0.5f && d < 0.5f)
+                return "";
+            return (d > 0 ? "+" : "") + d.ToString("0") + " " + unit + " ";
+        }
+
+        private static string Station(Producer p, bool missing)
+        {
+            string name = FoodCatalog.StationName(p.StationId);
+            if (p.StationId.Length > 0 && p.StationLevel > 1)
+                name += " level " + p.StationLevel;
+            return missing ? C(Bad, "at " + name + " (not in range)") : C(Good, "at " + name);
+        }
+
+        private static void Steps(StringBuilder sb, CookStep step, int depth)
+        {
+            foreach (CookStep c in step.Inputs)
+            {
+                string color = c.Missing > 0 ? Bad : c.Via != null ? St : Good;
+                sb.Append("<indent=").Append(depth + 1).Append("em>")
+                  .Append(C(color, FoodCatalog.ItemName(c.ItemId) + " " + (c.Need - c.Missing) + "/" + c.Need));
+                if (c.Via != null)
+                    sb.Append(C(Dim, "  make " + (c.Need - c.FromStock) + " " + Station(c.Via, c.StationMissing)));
+                sb.Append("</indent>\n");
+                if (c.Via != null)
+                    Steps(sb, c, depth + 1);
+            }
+        }
     }
 }

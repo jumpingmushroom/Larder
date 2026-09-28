@@ -226,6 +226,7 @@ namespace Larder.UI
             }
 
             _totals.text = v.Combo.Count > 0 ? Format.Totals(v) : "";
+            _cook.text = Format.Cook(v);
             _status.text = v.Combo.Count == 0
                 ? "No food in your bag or in chests within " + PluginConfig.Radius.Value.ToString("0") + " m."
                 : Format.Others(v);
