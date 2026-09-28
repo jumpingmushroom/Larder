@@ -157,8 +157,14 @@ is an `ItemDrop` whose `IsPiece()` is true, so it appears in `Piece.s_allPieces`
   millisecond. With fewer than three foods it returns what exists.
 - `SlotAdvisor`: given the plan and the active foods (`m_time`, burn time, `foodRate`), label
   each planned food *active Xm left* / *can refresh now* / *eat now* / *eat in Xm* (all slots
-  full and none refreshable), and each active food outside the plan *slot frees in Xm* (time
-  until it drops under half).
+  full and none refreshable) / *refresh X first*, and each active food outside the plan *slot
+  frees in Xm* (time until it drops under half). Eviction follows `Player.EatFood`: with three
+  foods, a new one replaces `GetMostDepletedFood()`, the refreshable food (under half) with the
+  smallest `m_time` among all active foods, planned ones included (Player.cs:2434-2445, 2515).
+  If that target is a planned food, the new food is `RefreshFirst` (`BlockedBy` = that food's
+  id, no Eat button) and the planned food itself shows *can refresh now*; if it's a food outside
+  the plan, *eat now*. Foods outside the plan are ordered by time until refreshable, then by
+  time left, so they're assigned in the order the game takes them.
 - `CookPlanner`: a producer graph. `Producer = Recipe(station, level, inputs×n, yield) |
   Conversion(stationKind, from, to)`. `Resolve(target, stock, stations, depth ≤ 3)` returns a
   tree of steps with have / need per leaf, the missing items, the missing stations, and
@@ -211,7 +217,8 @@ is an `ItemDrop` whose `IsPiece()` is true, so it appears in `Piece.s_allPieces`
   - Goal selector (4 tabs).
   - **Best combo**: 3 rows of icon · name · HP / St / Eitr · duration · source · status label ·
     [Eat] when it's in the bag and edible now (`Player.CanEat(item, false)`).
-  - Totals: HP / St / Eitr including base, and the change from what you have now.
+  - Totals: the plan's HP / St / Eitr including base, plus its regen, and a "now …" line with
+    your current HP / St / Eitr.
   - **Cook next**: ready pick and almost pick, each with its station (level, in range or not)
     and an ingredient list with have / need, intermediates indented.
   - Empty states: "No food nearby", "Nothing you can cook improves this combo".

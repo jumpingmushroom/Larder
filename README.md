@@ -24,8 +24,9 @@ one dish to cook next — here an "if you had…" pick with its ingredients.*
   radius (20 m by default), and placed feasts with portions left. No templates, no saved plans.
 - **Best three for your goal.** Balanced, Health, Stamina or Eitr, remembered per character.
 - **Slot timing.** Each planned food shows what to do with it: eat now, can refresh now, active
-  with time left, or eat in Xm once a slot frees. Foods outside the plan show when their slot
-  frees.
+  with time left, or eat in Xm once a slot frees. With all three slots full the game replaces
+  the refreshable food with the least time left, so when eating would push out a planned food,
+  Larder tells you to refresh that one first. Foods outside the plan show when their slot frees.
 - **Eat button.** For planned foods you're carrying, using the same code path as right-clicking
   the item — the same checks, the same messages.
 - **Cook next.** The one dish that would improve the combo and that you can make right now, plus
@@ -48,9 +49,12 @@ default) and not a ward or private chest you don't have access to; tombstones ne
 placed feast in range counts as its own source with its portions left; a feast item sitting in
 your bag or a chest counts as "place it, then eat".
 
-Only recipes you've discovered are ever suggested as the dish to cook next, and only materials
-you've seen are named as ingredients. Turn on `ShowUndiscovered` to lift that. Food you already
-own is always shown, discovered or not.
+Only dishes you've discovered are ever suggested to cook next, and the missing ingredients named
+in an "if you had…" pick are ones you've seen. Turn on `ShowUndiscovered` to lift that. Food you
+already own is always shown, discovered or not.
+
+Cook suggestions check that the station is in range, but not whether an oven or cooking station
+has fuel.
 
 ## Configuration
 
@@ -59,16 +63,16 @@ Edit in-game with a mod config manager (F1), or `BepInEx/config/com.jumpingmushr
 | Section | Setting | Default | Meaning |
 | --- | --- | --- | --- |
 | General | Enabled | `true` | Master switch. Off hides the Larder button and panel. |
-| General | Radius | `20` | Metres to search for chests, placed feasts and cooking stations. |
+| General | Radius | `20` | Metres to search for chests, placed feasts and cooking stations (5–50). |
 | General | ShowUndiscovered | `false` | Allow cook suggestions for recipes you haven't discovered yet, and name ingredients you haven't seen. Food you own is always shown. |
 | General | IncludeCartsAndShips | `true` | Count carts and ship holds within range as containers. |
 | UI | PanelOpen | `true` | Whether the panel is open. The Larder button toggles this. |
 | UI | Placement | `Auto` | Where the panel goes. `Auto`: right of the inventory and anything other mods put beside it. `Below`: under the chest window (or the inventory when none is open). `Manual`: at OffsetX/OffsetY from the top-left of the screen. |
 | UI | ToggleKey | none | Optional key that toggles the panel while the inventory is open. |
-| UI | Scale | `1` | Size of the panel. |
+| UI | Scale | `1` | Size of the panel (0.6–1.6). |
 | UI | OffsetX | `0` | Horizontal nudge in pixels (positive is right); in `Manual`, position from the screen's left edge. |
-| UI | OffsetY | `0` | Vertical nudge in pixels (positive is up); in `Manual`, position from the screen's top edge. |
-| Logging | Verbose | `false` | Log snapshots, skipped items and plans to the BepInEx log. |
+| UI | OffsetY | `0` | Vertical nudge in pixels (positive is up); in `Manual`, position measured from the screen's top edge, positive still up (so use negative values to move down). |
+| Logging | Verbose | `false` | Log plan timing to the BepInEx log. |
 
 ## Console
 

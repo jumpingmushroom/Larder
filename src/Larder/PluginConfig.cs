@@ -75,7 +75,7 @@ namespace Larder
                 new ConfigDescription("Vertical nudge in pixels (positive is up).", new AcceptableValueRange<float>(-1000f, 1000f), Attr(72)));
 
             Verbose = cfg.Bind("Logging", "Verbose", false,
-                new ConfigDescription("Log snapshots, skipped items and plans to the BepInEx log.", null, Attr(5, advanced: true)));
+                new ConfigDescription("Log plan timing to the BepInEx log.", null, Attr(5, advanced: true)));
         }
     }
 }
