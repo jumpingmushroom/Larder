@@ -215,8 +215,12 @@ is an `ItemDrop` whose `IsPiece()` is true, so it appears in `Piece.s_allPieces`
   - OffsetX/OffsetY (canvas units) are added in every mode, then the panel is clamped on screen.
   Contents:
   - Goal selector (4 tabs).
-  - **Best combo**: 3 rows of icon · name · HP / St / Eitr · duration · source · status label ·
-    [Eat] when it's in the bag and edible now (`Player.CanEat(item, false)`).
+  - **Best combo**: header row with an **Eat N** button (right of the header text, hidden when
+    N < 2) that eats every planned food it safely can from the bag in one click — re-reading
+    active foods and bag contents between eats, refreshing a planned food before a new one can
+    evict it (`Core/Model/EatOrder.cs`, same rule as `SlotAdvisor`) — followed by 3 rows of
+    icon · name · HP / St / Eitr · duration · source · status label · [Eat] when it's in the bag
+    and edible now (`Player.CanEat(item, false)`).
   - Totals: the plan's HP / St / Eitr including base, plus its regen, and a "now …" line with
     your current HP / St / Eitr.
   - **Cook next**: ready pick and almost pick, each with its station (level, in range or not)
@@ -299,7 +303,7 @@ Every change is committed and pushed. No AI attribution in commits, PRs, README 
 
 ## 5. Later (not 0.1.0)
 
-- Take food from the open chest / one "eat whole combo" button.
+- Take food from the open chest.
 - Hint on the cooking station / cauldron hover.
 - Planning 2–3 dishes at once.
 - Scoring feast buffs, meads and potions.

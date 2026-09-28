@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.0
+
+- Eat N button next to Best combo: eats every planned food it safely can from your bag in one
+  click, refreshing planned foods before eating new ones so nothing you planned gets pushed out.
+
 ## 0.1.0 — first cut
 
 - A Larder button on the inventory screen opens a side panel with the best three foods for your

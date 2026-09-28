@@ -3,7 +3,7 @@
   <PropertyGroup>
     <AssemblyName>Larder</AssemblyName>
     <RootNamespace>Larder</RootNamespace>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Description>A food planner in the inventory screen: the best three foods you own and the one dish to cook next.</Description>
   </PropertyGroup>
 

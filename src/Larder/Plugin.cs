@@ -18,7 +18,7 @@ namespace Larder
     {
         public const string PluginGuid = "com.jumpingmushroom.larder";
         public const string PluginName = "Larder";
-        public const string PluginVersion = "0.1.0";
+        public const string PluginVersion = "0.2.0";
 
         internal static ManualLogSource Log;
 

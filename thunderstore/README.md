@@ -29,6 +29,8 @@ one dish to cook next — here an "if you had…" pick with its ingredients.*
   Larder tells you to refresh that one first. Foods outside the plan show when their slot frees.
 - **Eat button.** For planned foods you're carrying, using the same code path as right-clicking
   the item — the same checks, the same messages.
+- **Eat N button.** Eats every planned food it safely can from your bag in one click, refreshing
+  planned foods before eating new ones so nothing you planned gets pushed out.
 - **Cook next.** The one dish that would improve the combo and that you can make right now, plus
   an "if you had…" pick that beats it, each with its ingredients as have / need and any
   intermediate steps.
