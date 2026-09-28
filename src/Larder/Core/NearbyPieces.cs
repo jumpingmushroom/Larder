@@ -18,18 +18,30 @@ namespace Larder.Core
         {
             var list = new List<Piece>();
             float r2 = radius * radius;
-            Player player = Player.m_localPlayer;
-            Transform ghost = player != null && player.m_placementGhost != null ? player.m_placementGhost.transform : null;
+            Transform ghost = Ghost();
             foreach (Piece p in Piece.s_allPieces)
             {
-                if (p == null || p.m_nview == null || !p.m_nview.IsValid())
-                    continue;
-                if (ghost != null && p.transform.IsChildOf(ghost))
+                if (p == null || !IsReal(p.m_nview, p, ghost))
                     continue;
                 if ((p.transform.position - at).sqrMagnitude <= r2)
                     list.Add(p);
             }
             return list;
+        }
+
+        /// <summary>The local player's build-placement ghost, or null.</summary>
+        public static Transform Ghost()
+        {
+            Player player = Player.m_localPlayer;
+            return player != null && player.m_placementGhost != null ? player.m_placementGhost.transform : null;
+        }
+
+        /// <summary>A placed, networked object: has a valid ZNetView and isn't part of the placement ghost.</summary>
+        public static bool IsReal(ZNetView nview, Component c, Transform ghost)
+        {
+            if (nview == null || !nview.IsValid())
+                return false;
+            return ghost == null || !c.transform.IsChildOf(ghost);
         }
     }
 }

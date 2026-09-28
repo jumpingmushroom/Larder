@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Larder.Core.Model;
 using UnityEngine;
@@ -47,42 +48,16 @@ namespace Larder.Core
             long me = player.GetPlayerID();
             foreach (Piece piece in nearby)
             {
-                float d = Vector3.Distance(piece.transform.position, at);
-
-                Feast feast = piece.GetComponent<Feast>();
-                if (feast != null)
+                // One odd piece (a modded feast with a broken item, a private container on a child
+                // object with no Piece) must not blank the panel: skip it and warn once.
+                try
                 {
-                    int left = feast.GetStack();
-                    if (left > 0 && feast.m_foodItem != null)
-                    {
-                        snap.Feasts++;
-                        AddFood(snap, feast.m_foodItem.m_itemData.m_shared.m_name, new Source
-                        {
-                            Kind = SourceKind.Feast,
-                            Label = FoodCatalog.ItemName(piece.m_name) + " " + Meters(d) + " (" + left + " left)",
-                            Distance = d,
-                            Count = left
-                        });
-                    }
-                    continue;
+                    AddPiece(snap, piece, at, me);
                 }
-
-                Container c = piece.GetComponentInChildren<Container>();
-                // A build-placement ghost's Container never got a ZDO (Container.cs Awake, ~line
-                // 67: m_inventory/m_piece are only set "if (m_nview.GetZDO() != null)"), so
-                // GetInventory() is null and the private CheckAccess would NRE on m_piece; check
-                // that before touching access at all. Tombstones (Container on the same
-                // GameObject, TombStone.cs:37) are excluded (PLAN §1.4).
-                if (c == null || c.GetComponent<TombStone>() != null)
-                    continue;
-                Inventory inv = c.GetInventory();
-                if (inv == null || !CanOpen(c, me))
-                    continue;
-                bool vehicle = c.m_wagon != null || piece.GetComponent<Ship>() != null;
-                if (vehicle && !PluginConfig.IncludeCartsAndShips.Value)
-                    continue;
-                snap.Containers++;
-                AddInventory(snap, inv, SourceKind.Container, FoodCatalog.ItemName(c.m_name) + " " + Meters(d), d);
+                catch (Exception e)
+                {
+                    LarderPlugin.WarnOnce("Larder: skipped piece " + piece.name, e);
+                }
             }
 
             foreach (KeyValuePair<string, List<Source>> kv in snap.FoodSources)
@@ -105,6 +80,46 @@ namespace Larder.Core
                     snap.Pool.Add(f);
                 AddFood(snap, a.Id, new Source { Kind = SourceKind.Eaten, Label = "eaten", Distance = -1f, Count = 0 });
             }
+        }
+
+        private static void AddPiece(Snapshot snap, Piece piece, Vector3 at, long me)
+        {
+            float d = Vector3.Distance(piece.transform.position, at);
+
+            Feast feast = piece.GetComponent<Feast>();
+            if (feast != null)
+            {
+                int left = feast.GetStack();
+                if (left > 0 && feast.m_foodItem != null)
+                {
+                    snap.Feasts++;
+                    AddFood(snap, feast.m_foodItem.m_itemData.m_shared.m_name, new Source
+                    {
+                        Kind = SourceKind.Feast,
+                        Label = FoodCatalog.ItemName(piece.m_name) + " " + Meters(d) + " (" + left + " left)",
+                        Distance = d,
+                        Count = left
+                    });
+                }
+                return;
+            }
+
+            Container c = piece.GetComponentInChildren<Container>();
+            // A build-placement ghost's Container never got a ZDO (Container.cs Awake, ~line
+            // 67: m_inventory/m_piece are only set "if (m_nview.GetZDO() != null)"), so
+            // GetInventory() is null and the private CheckAccess would NRE on m_piece; check
+            // that before touching access at all. Tombstones (Container on the same
+            // GameObject, TombStone.cs:37) are excluded (PLAN §1.4).
+            if (c == null || c.GetComponent<TombStone>() != null)
+                return;
+            Inventory inv = c.GetInventory();
+            if (inv == null || !CanOpen(c, me))
+                return;
+            bool vehicle = c.m_wagon != null || piece.GetComponent<Ship>() != null;
+            if (vehicle && !PluginConfig.IncludeCartsAndShips.Value)
+                return;
+            snap.Containers++;
+            AddInventory(snap, inv, SourceKind.Container, FoodCatalog.ItemName(c.m_name) + " " + Meters(d), d);
         }
 
         private static bool CanOpen(Container c, long me)

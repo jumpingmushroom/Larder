@@ -8,7 +8,7 @@ namespace Larder.Core
     /// <summary>
     /// Every food the game knows and every way to make any item, read from ObjectDB and the
     /// ZNetScene prefabs at runtime (PLAN §1.1, §1.5), so patches and other mods' foods and
-    /// stations are included. Rebuilt when the item, recipe or prefab count changes.
+    /// stations are included. Rebuilt when the ObjectDB instance or the item, recipe or prefab count changes.
     /// </summary>
     internal static class FoodCatalog
     {
@@ -20,6 +20,7 @@ namespace Larder.Core
         private static readonly Dictionary<string, string> StationNames = new Dictionary<string, string>();
 
         private static int _items = -1, _recipes = -1, _prefabs = -1;
+        private static ObjectDB _db;
 
         public static void EnsureBuilt()
         {
@@ -27,9 +28,12 @@ namespace Larder.Core
             ZNetScene scene = ZNetScene.instance;
             if (db == null || scene == null || db.m_items.Count == 0)
                 return;
-            if (db.m_items.Count == _items && db.m_recipes.Count == _recipes && scene.m_prefabs.Count == _prefabs)
+            // Each world load brings a new ObjectDB, and server-synced mods can change food values
+            // between worlds without changing any count.
+            if (db == _db && db.m_items.Count == _items && db.m_recipes.Count == _recipes && scene.m_prefabs.Count == _prefabs)
                 return;
             Build(db, scene);
+            _db = db;
             _items = db.m_items.Count;
             _recipes = db.m_recipes.Count;
             _prefabs = scene.m_prefabs.Count;

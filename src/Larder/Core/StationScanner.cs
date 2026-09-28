@@ -11,9 +11,12 @@ namespace Larder.Core
         {
             var levels = new StationLevels();
             float r2 = radius * radius;
+            // CraftingStation.Start adds itself to m_allStations when it has no ZNetView
+            // (CraftingStation.cs:83-85), so a hammer ghost joins the list; skip it like NearbyPieces does.
+            Transform ghost = NearbyPieces.Ghost();
             foreach (CraftingStation s in CraftingStation.m_allStations)
             {
-                if (s != null && (s.transform.position - at).sqrMagnitude <= r2)
+                if (s != null && NearbyPieces.IsReal(s.m_nview, s, ghost) && (s.transform.position - at).sqrMagnitude <= r2)
                     levels.Set(s.m_name, s.GetLevel());
             }
             foreach (Piece p in nearby)

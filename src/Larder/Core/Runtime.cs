@@ -13,14 +13,22 @@ namespace Larder.Core
 
         public static void Tick()
         {
-            if (!PluginConfig.Enabled.Value || !InventoryGui.IsVisible())
-                return;
-            if (PluginConfig.ToggleKey.Value.IsDown())
-                LarderPanel.Toggle();
-            LarderPanel.Settle();
-            if (!LarderPanel.Visible || Time.unscaledTime < _next)
-                return;
-            Refresh();
+            try
+            {
+                if (!PluginConfig.Enabled.Value || !InventoryGui.IsVisible())
+                    return;
+                if (PluginConfig.ToggleKey.Value.IsDown())
+                    LarderPanel.Toggle();
+                LarderPanel.Settle();
+                if (!LarderPanel.Visible || Time.unscaledTime < _next)
+                    return;
+                Refresh();
+            }
+            catch (Exception e)
+            {
+                // Tick runs every frame; a failure here must not throw every frame.
+                LarderPlugin.WarnOnce("Larder: tick failed", e);
+            }
         }
 
         /// <summary>Requests a refresh on the next Tick instead of re-planning immediately, so
