@@ -34,7 +34,7 @@ namespace Larder.UI
             r.Text = UiUtil.Text(r.Root, "Text", 15f, TextAlignmentOptions.Left);
             r.Text.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
 
-            r.Eat = UiUtil.Button(r.Root, "Eat", template, "Eat", () => { });
+            r.Eat = UiUtil.Button(r.Root, "Eat", template, "Eat", () => Eater.Eat(r.FoodId));
             UiUtil.Size(r.Eat.gameObject, 64f, 30f);
             r.Eat.gameObject.SetActive(false);
             return r;

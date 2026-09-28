@@ -221,6 +221,8 @@ namespace Larder.UI
                 ItemDrop.ItemData item;
                 r.Icon.sprite = FoodCatalog.Items.TryGetValue(slot.Food.Id, out item) ? IconOrNull(item) : null;
                 r.Text.text = Format.Row(slot, v);
+                bool edible = slot.State == SlotState.EatNow || slot.State == SlotState.RefreshNow;
+                r.Eat.gameObject.SetActive(edible && Eater.CanEatNow(Player.m_localPlayer, slot.Food.Id));
             }
 
             _totals.text = v.Combo.Count > 0 ? Format.Totals(v) : "";
