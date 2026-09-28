@@ -29,6 +29,7 @@ namespace Larder
         {
             Log = Logger;
             PluginConfig.Bind(base.Config);
+            Core.ConsoleCommands.Register();
 
             _harmony = new Harmony(PluginGuid);
             _harmony.PatchAll(typeof(LarderPlugin).Assembly);
