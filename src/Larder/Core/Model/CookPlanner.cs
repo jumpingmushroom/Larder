@@ -141,22 +141,45 @@ namespace Larder.Core.Model
                 step.StationMissing = true;
                 plan.AddStation(p.StationId, p.StationLevel);
             }
-            foreach (Ingredient ing in p.AnyOneInput ? PickOne(p, step.Crafts, stock) : p.Inputs)
-                step.Inputs.Add(Supply(ing.ItemId, ing.Amount * step.Crafts, ctx, stock, depth, plan));
+
+            if (p.AnyOneInput && p.Inputs.Count > 1)
+            {
+                CookStep bestInput = null;
+                CookPlan bestSub = null;
+                Dictionary<string, int> bestStock = null;
+
+                foreach (Ingredient ing in p.Inputs)
+                {
+                    var s = new Dictionary<string, int>(stock);
+                    var sub = new CookPlan();
+                    CookStep input = Supply(ing.ItemId, ing.Amount * step.Crafts, ctx, s, depth, sub);
+                    if (bestSub == null || Better(sub, bestSub))
+                    {
+                        bestInput = input;
+                        bestSub = sub;
+                        bestStock = s;
+                    }
+                }
+
+                if (bestInput != null)
+                {
+                    stock.Clear();
+                    foreach (KeyValuePair<string, int> kv in bestStock)
+                        stock[kv.Key] = kv.Value;
+                    plan.Merge(bestSub);
+                    step.Inputs.Add(bestInput);
+                }
+            }
+            else
+            {
+                foreach (Ingredient ing in p.Inputs)
+                    step.Inputs.Add(Supply(ing.ItemId, ing.Amount * step.Crafts, ctx, stock, depth, plan));
+            }
+
             int surplus = step.Crafts * p.Yield - need;
             if (surplus > 0)
                 stock[itemId] = Count(stock, itemId) + surplus;
             return step;
-        }
-
-        private static IList<Ingredient> PickOne(Producer p, int crafts, Dictionary<string, int> stock)
-        {
-            foreach (Ingredient ing in p.Inputs)
-            {
-                if (Count(stock, ing.ItemId) >= ing.Amount * crafts)
-                    return new[] { ing };
-            }
-            return p.Inputs.Count > 0 ? new[] { p.Inputs[0] } : new Ingredient[0];
         }
 
         private static CookStep Supply(string itemId, int need, Ctx ctx, Dictionary<string, int> stock, int depth,

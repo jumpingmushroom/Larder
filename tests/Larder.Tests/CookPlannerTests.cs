@@ -161,5 +161,19 @@ namespace Larder.Tests
         {
             Assert.Null(CookPlanner.Plan("unobtainium", Index(), Stock(), Stations()));
         }
+
+        [Fact]
+        public void AnyOneInputCraftsTheAlternativeWhenNeeded()
+        {
+            var idx = Index(
+                new Producer(ProducerKind.Recipe, "stew", 1, "", 1,
+                    new[] { new Ingredient("boar", 1), new Ingredient("deer", 1) }, anyOneInput: true),
+                R("deer", "", 1, ("raw", 1)));
+            CookPlan p = CookPlanner.Plan("stew", idx, Stock(("raw", 1)), Stations());
+            Assert.True(p.ReadyNow);
+            Assert.Single(p.Root.Inputs);
+            Assert.Equal("deer", p.Root.Inputs[0].ItemId);
+            Assert.NotNull(p.Root.Inputs[0].Via);
+        }
     }
 }
