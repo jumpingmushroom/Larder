@@ -220,8 +220,10 @@ is an `ItemDrop` whose `IsPiece()` is true, so it appears in `Piece.s_allPieces`
 
 ### 2.4 Patches: `Patches/InventoryPatches.cs`
 
-Postfixes on `InventoryGui.Show` / `Hide` (and `Awake` to build the button once). No prefixes,
-no skipped vanilla code.
+Only `InventoryGui.Show` is patched, with a postfix that opens/attaches the panel. There is no
+`Hide` patch: closing is detected by polling `InventoryGui.IsVisible()` once a frame from
+`Runtime.Tick`, which also stops re-planning while the screen is closed. No prefixes, no skipped
+vanilla code.
 
 ### 2.5 Config (BepInEx, `com.jumpingmushroom.larder.cfg`, editable in-game via F1)
 
@@ -300,12 +302,23 @@ Out of scope: auto-eating, biome/role templates, saved plans.
 
 ## 6. To verify on the rig
 
-- Carts and ship holds: where the `Container` sits relative to the `Piece`, and that
-  `GetComponentInChildren` finds it.
-- A feast item in inventory: that its `m_dropPrefab` carries `Feast`, and which `m_foodItem`
-  it points at.
-- `Piece.s_allPieces` includes placed feasts and every chest in the loaded area.
-- Cost of a full snapshot in a large base (target < 2 ms; otherwise cache pieces by position and
-  refresh less often).
-- `UseItem(…, fromInventoryGui: true)` from our button plays the eat animation and messages as a
-  right-click does.
+Verified in-game (2026-09-28 sessions):
+
+- `Piece.s_allPieces` found 22 containers in the user's base; a full snapshot took ~2 ms per plan
+  with those 22 containers (target was < 2 ms — close enough, no caching needed for 0.1.0).
+- Every vanilla feast item maps to itself as its food: `FeastFood[id] == id` for all of them,
+  because `m_foodItem` is unset on the vanilla `Feast` prefabs (it falls back to the feast's own
+  `ItemDrop`, per §1.3).
+- Eat via `UseItem(…, fromInventoryGui: true)` behaves like a right-click — same animation and
+  messages — confirmed by the user.
+- Hammer placement ghosts (the translucent preview piece following the cursor) are skipped and
+  never show up as a spurious container or feast — confirmed.
+- Raw meats were wrongly counted as food before the `Consumable` half of the food filter was
+  added (§1.1); they carry `m_food > 0` but are Materials, not Consumables, so vanilla can't eat
+  them either. Fixed by requiring `m_itemType == Consumable`.
+- The panel overlapped another mod's extra-slot inventory grid before `UI.Placement` shipped;
+  `Auto` placement (stepping the panel past the whole UI cluster beside the inventory, not just
+  the vanilla inventory) resolved it.
+
+Still unverified: carts and ship holds (none available to test on the rig), and a placed feast
+as a stock source (not tested in a session).
