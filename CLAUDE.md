@@ -14,7 +14,7 @@
 
 - `dotnet test tests/Larder.Tests` runs the model tests (pure C#, net8.0). Everything under
   `src/Larder/Core/Model/` must stay free of UnityEngine and game types.
-- `./build/deploy.sh` builds Release and copies the DLL to the r2modman **Mods** profile on the
+- `./build/deploy.sh` builds Release and copies the DLL to the r2modman **Default** profile (the one the user plays on) on the
   gaming rig over SSH, replacing it atomically. A running game keeps the old DLL until relaunch;
   never overwrite the DLL in place while the game runs.
 - The rig's login shell is fish: wrap anything non-trivial in `bash -c '...'`.
