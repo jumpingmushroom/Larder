@@ -27,6 +27,8 @@ namespace Larder.UI
         private static Button _toggle;
         private static readonly Button[] Tabs = new Button[4];
         private static readonly ComboRow[] Rows = new ComboRow[3];
+        private static Button _eatAll;
+        private static TextMeshProUGUI _eatAllLabel;
         private static TextMeshProUGUI _totals;
         private static TextMeshProUGUI _cook;
         private static TextMeshProUGUI _status;
@@ -192,7 +194,24 @@ namespace Larder.UI
                 UiUtil.Size(Tabs[i].gameObject, 80f, 28f);
             }
 
-            UiUtil.Text(_root, "ComboHeader", 17f, TextAlignmentOptions.Left).text = "<b>Best combo</b>";
+            RectTransform comboHeader = UiUtil.Rect("ComboHeader", _root);
+            var chLayout = comboHeader.gameObject.AddComponent<HorizontalLayoutGroup>();
+            chLayout.spacing = 8f;
+            chLayout.childAlignment = TextAnchor.MiddleLeft;
+            chLayout.childControlWidth = true;
+            chLayout.childControlHeight = true;
+            chLayout.childForceExpandWidth = false;
+            chLayout.childForceExpandHeight = false;
+
+            TextMeshProUGUI comboHeaderText = UiUtil.Text(comboHeader, "ComboHeaderText", 17f, TextAlignmentOptions.Left);
+            comboHeaderText.text = "<b>Best combo</b>";
+            comboHeaderText.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+
+            _eatAll = UiUtil.Button(comboHeader, "EatAll", gui.m_craftButton, "Eat N", Eater.EatAll);
+            UiUtil.Size(_eatAll.gameObject, 72f, 28f);
+            _eatAllLabel = _eatAll.GetComponentInChildren<TextMeshProUGUI>(true);
+            _eatAll.gameObject.SetActive(false);
+
             for (int i = 0; i < Rows.Length; i++)
                 Rows[i] = ComboRow.Create(_root, gui.m_craftButton, i);
             _totals = UiUtil.Text(_root, "Totals", 15f, TextAlignmentOptions.Left);
@@ -236,11 +255,17 @@ namespace Larder.UI
             {
                 foreach (ComboRow r in Rows)
                     r.Root.gameObject.SetActive(false);
+                _eatAll.gameObject.SetActive(false);
                 _totals.text = "";
                 _cook.text = "";
                 _status.text = Format.C(Format.Bad, "Larder couldn't read the game: " + v.Error);
                 return;
             }
+
+            int eatN = EatOrder.Next(v.Combo, v.Active, v.BagFoods, Game.m_foodRate).Count;
+            _eatAll.gameObject.SetActive(eatN >= 2);
+            if (eatN >= 2)
+                _eatAllLabel.text = "Eat " + eatN;
 
             for (int i = 0; i < Rows.Length; i++)
             {

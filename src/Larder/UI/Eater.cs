@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using Larder.Core;
+using Larder.Core.Model;
 
 namespace Larder.UI
 {
@@ -34,6 +37,59 @@ namespace Larder.UI
                 return;
             p.UseItem(p.GetInventory(), item, true);
             Runtime.Refresh();
+        }
+
+        /// <summary>The "Eat N" button: eats every planned food it safely can from the bag, in order,
+        /// re-reading the game between eats since UseItem changes it. Bag only (PLAN "Eat button for
+        /// bag items only"); never throws out into Unity's event system.</summary>
+        public static void EatAll()
+        {
+            try
+            {
+                Player p = Player.m_localPlayer;
+                PlanView view = Runtime.Last;
+                if (p != null && view != null && view.Combo.Count > 0)
+                    EatLoop(p, view.Combo);
+            }
+            catch (Exception e)
+            {
+                LarderPlugin.WarnOnce("Larder: eat all failed", e);
+            }
+            Runtime.Refresh();
+        }
+
+        private static void EatLoop(Player p, List<FoodStats> plan)
+        {
+            for (int i = 0; i < EatOrder.MaxEats; i++)
+            {
+                List<ActiveFood> active = ActiveFoods.Read(p);
+                ISet<string> inBag = BagFoods(p);
+                List<FoodStats> next = EatOrder.Next(plan, active, inBag, Game.m_foodRate);
+                if (next.Count == 0)
+                    break;
+                string foodId = next[0].Id;
+                ItemDrop.ItemData item = FindInBag(p, foodId);
+                if (item == null || !p.CanEat(item, false))
+                    break;
+                p.UseItem(p.GetInventory(), item, true);
+                if (FindInBag(p, foodId) != null)
+                    break; // still in the bag: the eat didn't take (status effect conflict, etc.)
+            }
+        }
+
+        /// <summary>Shared names of bag items that are food and not feast items (same rule as FindInBag).</summary>
+        private static HashSet<string> BagFoods(Player p)
+        {
+            var set = new HashSet<string>();
+            foreach (ItemDrop.ItemData item in p.GetInventory().GetAllItems())
+            {
+                if (item == null || item.m_shared == null)
+                    continue;
+                string id = item.m_shared.m_name;
+                if (FoodCatalog.Foods.ContainsKey(id) && !FoodCatalog.FeastFood.ContainsKey(id))
+                    set.Add(id);
+            }
+            return set;
         }
     }
 }

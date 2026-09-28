@@ -12,6 +12,10 @@ namespace Larder.Core
         public StationLevels Stations;
         public List<FoodStats> Combo = new List<FoodStats>();
         public SlotAdvice Slots = new SlotAdvice();
+        /// <summary>Player.m_foods as of this plan, for EatOrder (Eat N button).</summary>
+        public List<ActiveFood> Active = new List<ActiveFood>();
+        /// <summary>Shared names of foods directly in the bag (not via a feast item), for EatOrder.</summary>
+        public HashSet<string> BagFoods = new HashSet<string>();
         public Totals Now;
         public Totals Planned;
         public CookAdvice Cook = new CookAdvice();
@@ -33,7 +37,9 @@ namespace Larder.Core
                 List<Piece> nearby = NearbyPieces.Collect(player.transform.position, radius);
                 view.Snapshot = StockScanner.Take(player, nearby);
                 view.Stations = StationScanner.Scan(player.transform.position, radius, nearby);
+                view.BagFoods = BagFoodIds(view.Snapshot);
                 List<ActiveFood> active = ActiveFoods.Read(player);
+                view.Active = active;
                 StockScanner.AddEaten(view.Snapshot, active);
 
                 view.Combo = ComboSolver.Best(view.Snapshot.Pool, goal);
@@ -59,6 +65,25 @@ namespace Larder.Core
             if (PluginConfig.Verbose.Value)
                 LarderPlugin.Log.LogInfo("Larder: planned in " + view.Millis.ToString("0.00") + " ms");
             return view;
+        }
+
+        /// <summary>Shared names with a bag source: eatable directly (a feast item's food only has a
+        /// FeastItem source, per StockScanner.AddInventory).</summary>
+        private static HashSet<string> BagFoodIds(Snapshot snapshot)
+        {
+            var ids = new HashSet<string>();
+            foreach (KeyValuePair<string, List<Source>> kv in snapshot.FoodSources)
+            {
+                foreach (Source s in kv.Value)
+                {
+                    if (s.Kind == SourceKind.Bag)
+                    {
+                        ids.Add(kv.Key);
+                        break;
+                    }
+                }
+            }
+            return ids;
         }
     }
 }
