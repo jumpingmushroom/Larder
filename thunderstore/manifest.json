@@ -1,0 +1,9 @@
+{
+  "name": "Larder",
+  "version_number": "0.1.0",
+  "website_url": "https://github.com/jumpingmushroom/Larder",
+  "dependencies": [
+    "denikson-BepInExPack_Valheim-5.4.2350"
+  ],
+  "description": "A food planner in your inventory: the best three foods from your bag, nearby chests and feasts, when to eat them, and the one dish to cook next with its ingredients. Client-side."
+}

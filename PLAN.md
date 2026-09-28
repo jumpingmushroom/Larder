@@ -185,8 +185,9 @@ is an `ItemDrop` whose `IsPiece()` is true, so it appears in `Piece.s_allPieces`
 ### 2.3 UI: `UI/`
 
 - `LarderButton`: a small button on the inventory screen, cloned from a vanilla button so it
-  takes the game's style. Toggles the panel. Gamepad: a bindable key (default: none, the button
-  is reachable with the gamepad cursor).
+  takes the game's style. Toggles the panel. Gamepad: the panel follows `PanelOpen` (open by
+  default), so gamepad players see the plan; the Eat and goal buttons are mouse-only in 0.1.0,
+  and the goal can also be set with `larder goal <name>`.
 - `LarderPanel`, to the right of the inventory/container block, built from the game's panel
   background, fonts and item icons:
   - Goal selector (4 tabs).
@@ -213,6 +214,8 @@ no skipped vanilla code.
 | General | ShowUndiscovered | `false` | Allow suggestions of recipes you haven't discovered. |
 | General | IncludeCartsAndShips | `true` | Count carts and ship holds as containers. |
 | UI | PanelOpen | `true` | Remembered open/closed state. |
+| UI | ToggleKey | none | Optional key that toggles the panel while the inventory is open. |
+| UI | OffsetX / OffsetY | `0` | Nudge the panel if another mod's UI overlaps it. |
 | UI | Scale | `1` | Panel size. |
 | Logging | Verbose | `false` | Log snapshots, skipped items and plans. |
 
