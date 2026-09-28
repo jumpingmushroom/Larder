@@ -1,3 +1,4 @@
+using System;
 using Larder.Core;
 using Larder.Core.Model;
 using TMPro;
@@ -73,6 +74,20 @@ namespace Larder.UI
             _root.localScale = Vector3.one * PluginConfig.Scale.Value;
         }
 
+        /// <summary>Best-effort: sets the status text if the panel exists, and never throws itself.</summary>
+        public static void ShowError(string message)
+        {
+            try
+            {
+                if (_status != null)
+                    _status.text = Format.C(Format.Bad, message);
+            }
+            catch (Exception)
+            {
+                // Deliberately swallowed: this is the last-resort error path.
+            }
+        }
+
         private static void Build(InventoryGui gui)
         {
             RectTransform host = gui.m_player;
@@ -82,6 +97,28 @@ namespace Larder.UI
                 return;
             }
 
+            try
+            {
+                BuildInternal(gui, host);
+            }
+            catch (Exception e)
+            {
+                if (_root != null)
+                {
+                    UnityEngine.Object.Destroy(_root.gameObject);
+                    _root = null;
+                }
+                if (_toggle != null)
+                {
+                    UnityEngine.Object.Destroy(_toggle.gameObject);
+                    _toggle = null;
+                }
+                LarderPlugin.WarnOnce("Larder: panel build failed", e);
+            }
+        }
+
+        private static void BuildInternal(InventoryGui gui, RectTransform host)
+        {
             _root = UiUtil.Rect("LarderPanel", host);
             _root.anchorMin = _root.anchorMax = new Vector2(1f, 1f);
             _root.pivot = new Vector2(0f, 1f);
@@ -143,9 +180,9 @@ namespace Larder.UI
                 PluginConfig.Scale.SettingChanged += (s, e) => ApplyLayout();
                 PluginConfig.OffsetX.SettingChanged += (s, e) => ApplyLayout();
                 PluginConfig.OffsetY.SettingChanged += (s, e) => ApplyLayout();
-                PluginConfig.Radius.SettingChanged += (s, e) => Runtime.Refresh();
-                PluginConfig.ShowUndiscovered.SettingChanged += (s, e) => Runtime.Refresh();
-                PluginConfig.IncludeCartsAndShips.SettingChanged += (s, e) => Runtime.Refresh();
+                PluginConfig.Radius.SettingChanged += (s, e) => Runtime.RequestRefresh();
+                PluginConfig.ShowUndiscovered.SettingChanged += (s, e) => Runtime.RequestRefresh();
+                PluginConfig.IncludeCartsAndShips.SettingChanged += (s, e) => Runtime.RequestRefresh();
             }
         }
 
@@ -182,7 +219,7 @@ namespace Larder.UI
                 PlannedSlot slot = v.Slots.Planned[i];
                 r.FoodId = slot.Food.Id;
                 ItemDrop.ItemData item;
-                r.Icon.sprite = FoodCatalog.Items.TryGetValue(slot.Food.Id, out item) ? item.GetIcon() : null;
+                r.Icon.sprite = FoodCatalog.Items.TryGetValue(slot.Food.Id, out item) ? IconOrNull(item) : null;
                 r.Text.text = Format.Row(slot, v);
             }
 
@@ -190,6 +227,19 @@ namespace Larder.UI
             _status.text = v.Combo.Count == 0
                 ? "No food in your bag or in chests within " + PluginConfig.Radius.Value.ToString("0") + " m."
                 : Format.Others(v);
+        }
+
+        /// <summary>ItemData.GetIcon() indexes m_shared.m_icons[m_variant] with no bounds check;
+        /// a modded food with an empty icon array (or a bad variant) would throw. Null reads as no icon.</summary>
+        private static Sprite IconOrNull(ItemDrop.ItemData item)
+        {
+            ItemDrop.ItemData.SharedData s = item != null ? item.m_shared : null;
+            if (s == null || s.m_icons == null || s.m_icons.Length == 0)
+                return null;
+            int variant = item.m_variant;
+            if (variant < 0 || variant >= s.m_icons.Length)
+                variant = 0;
+            return s.m_icons[variant];
         }
     }
 }

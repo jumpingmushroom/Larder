@@ -1,3 +1,4 @@
+using System;
 using Larder.UI;
 using UnityEngine;
 
@@ -21,14 +22,29 @@ namespace Larder.Core
             Refresh();
         }
 
+        /// <summary>Requests a refresh on the next Tick instead of re-planning immediately, so
+        /// dragging a slider config value doesn't re-plan on every value change.</summary>
+        public static void RequestRefresh()
+        {
+            _next = 0f;
+        }
+
         public static void Refresh()
         {
             _next = Time.unscaledTime + 1f;
             Player p = Player.m_localPlayer;
             if (p == null || !LarderPanel.Visible)
                 return;
-            Last = Planner.Compute(p, GoalStore.Get(p));
-            LarderPanel.Render(Last);
+            try
+            {
+                Last = Planner.Compute(p, GoalStore.Get(p));
+                LarderPanel.Render(Last);
+            }
+            catch (Exception e)
+            {
+                LarderPlugin.WarnOnce("Larder: panel render failed", e);
+                LarderPanel.ShowError("Larder: internal error, see log.");
+            }
         }
     }
 }
