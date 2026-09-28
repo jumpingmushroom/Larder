@@ -50,6 +50,8 @@ namespace Larder.UI
                     return C(Good, "can refresh now");
                 case SlotState.EatLater:
                     return "eat in " + Labels.Duration(slot.Seconds);
+                case SlotState.RefreshFirst:
+                    return "refresh " + FoodCatalog.ItemName(slot.BlockedBy) + " first";
                 default:
                     return C(Good, "eat now");
             }

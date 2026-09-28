@@ -65,6 +65,42 @@ namespace Larder.Tests
             Assert.Equal(500f, s.Planned[2].Seconds);   // then x
         }
 
+        // Player.EatFood with three foods replaces GetMostDepletedFood(): the refreshable food with the
+        // least time left among all active foods, planned ones included (Player.cs:2434-2445, 2515).
+        [Fact]
+        public void FullStomachWouldEvictAPlannedFoodSoRefreshItFirst()
+        {
+            var plan = new[] { F("a"), F("b"), F("n") };
+            var active = new[] { new ActiveFood("a", 120, 1200), new ActiveFood("b", 1000, 1200), new ActiveFood("x", 300, 1200) };
+            SlotAdvice s = SlotAdvisor.Advise(plan, active, 1f);
+            Assert.Equal(SlotState.RefreshNow, s.Planned[0].State);
+            Assert.Equal(SlotState.RefreshFirst, s.Planned[2].State);
+            Assert.Equal("a", s.Planned[2].BlockedBy);
+        }
+
+        [Fact]
+        public void FullStomachEvictsTheMoreDepletedOtherFood()
+        {
+            var plan = new[] { F("a"), F("b"), F("n") };
+            var active = new[] { new ActiveFood("a", 120, 1200), new ActiveFood("b", 1000, 1200), new ActiveFood("x", 60, 1200) };
+            SlotAdvice s = SlotAdvisor.Advise(plan, active, 1f);
+            Assert.Equal(SlotState.RefreshNow, s.Planned[0].State);
+            Assert.Equal(SlotState.EatNow, s.Planned[2].State);
+            Assert.Null(s.Planned[2].BlockedBy);
+        }
+
+        [Fact]
+        public void RefreshableOthersGoInTheGamesOrderLeastTimeLeftFirst()
+        {
+            var plan = new[] { F("a"), F("n1"), F("n2") };
+            var active = new[] { new ActiveFood("a", 1000, 1200), new ActiveFood("x", 500, 1200), new ActiveFood("y", 300, 1200) };
+            SlotAdvice s = SlotAdvisor.Advise(plan, active, 1f);
+            Assert.Equal("y", s.Others[0].Id);
+            Assert.Equal("x", s.Others[1].Id);
+            Assert.Equal(SlotState.EatNow, s.Planned[1].State);
+            Assert.Equal(SlotState.EatNow, s.Planned[2].State);
+        }
+
         [Fact]
         public void FoodRateScalesRealTime()
         {

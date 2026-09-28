@@ -254,6 +254,7 @@ namespace Larder.UI
                 ItemDrop.ItemData item;
                 r.Icon.sprite = FoodCatalog.Items.TryGetValue(slot.Food.Id, out item) ? IconOrNull(item) : null;
                 r.Text.text = Format.Row(slot, v);
+                // RefreshFirst stays hidden: eating it now would push a planned food out.
                 bool edible = slot.State == SlotState.EatNow || slot.State == SlotState.RefreshNow;
                 r.Eat.gameObject.SetActive(edible && Eater.CanEatNow(Player.m_localPlayer, slot.Food.Id));
             }

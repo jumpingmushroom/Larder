@@ -34,21 +34,26 @@ namespace Larder.Core.Model
         EatNow,
         EatLater,
         Active,
-        RefreshNow
+        RefreshNow,
+        /// <summary>Eating this now would push out the planned food named by BlockedBy; refresh that one first.</summary>
+        RefreshFirst
     }
 
     public sealed class PlannedSlot
     {
         public readonly FoodStats Food;
         public readonly SlotState State;
-        /// <summary>Active: real seconds left. EatLater: real seconds until a slot frees. Otherwise 0.</summary>
+        /// <summary>Active/RefreshNow: real seconds left. EatLater: real seconds until a slot frees. Otherwise 0.</summary>
         public readonly float Seconds;
+        /// <summary>RefreshFirst: the Id of the planned food the game would replace. Otherwise null.</summary>
+        public readonly string BlockedBy;
 
-        public PlannedSlot(FoodStats food, SlotState state, float seconds)
+        public PlannedSlot(FoodStats food, SlotState state, float seconds, string blockedBy = null)
         {
             Food = food;
             State = state;
             Seconds = seconds;
+            BlockedBy = blockedBy;
         }
     }
 
@@ -73,8 +78,10 @@ namespace Larder.Core.Model
 
     /// <summary>
     /// Mirrors Player.CanEat / EatFood (PLAN §1.2): a free slot takes a new food; with three foods,
-    /// a new one replaces a food that is under half its duration. Foods outside the plan are the
-    /// ones to give up, soonest-replaceable first.
+    /// a new one replaces GetMostDepletedFood(), the refreshable food (under half its duration) with
+    /// the least time left among all active foods, planned ones included (Player.cs:2434-2445, 2515).
+    /// If that would be a planned food, the new one waits (RefreshFirst) until the planned food is
+    /// refreshed. Foods outside the plan are the ones to give up, in the order the game takes them.
     /// </summary>
     public static class SlotAdvisor
     {
@@ -90,14 +97,29 @@ namespace Larder.Core.Model
                 planIds.Add(f.Id);
 
             var others = new List<ActiveFood>();
+            var plannedActive = new List<ActiveFood>();
             foreach (ActiveFood a in active)
             {
-                if (!planIds.Contains(a.Id))
+                if (planIds.Contains(a.Id))
+                    plannedActive.Add(a);
+                else
                     others.Add(a);
             }
-            others.Sort((x, y) => x.SecondsUntilRefreshable(rate).CompareTo(y.SecondsUntilRefreshable(rate)));
+            others.Sort((x, y) =>
+            {
+                int c = x.SecondsUntilRefreshable(rate).CompareTo(y.SecondsUntilRefreshable(rate));
+                return c != 0 ? c : x.TimeLeft.CompareTo(y.TimeLeft);
+            });
             foreach (ActiveFood o in others)
                 advice.Others.Add(new OtherFood(o.Id, o.SecondsUntilRefreshable(rate)));
+
+            // The planned food the game would replace first, if any is refreshable.
+            ActiveFood plannedTarget = null;
+            foreach (ActiveFood a in plannedActive)
+            {
+                if (a.CanEatAgain && (plannedTarget == null || a.TimeLeft < plannedTarget.TimeLeft))
+                    plannedTarget = a;
+            }
 
             int free = Math.Max(0, MaxFoods - active.Count);
             int next = 0;
@@ -120,7 +142,16 @@ namespace Larder.Core.Model
                     advice.Planned.Add(new PlannedSlot(f, SlotState.EatNow, 0f));
                     continue;
                 }
-                float wait = next < others.Count ? others[next].SecondsUntilRefreshable(rate) : 0f;
+                // Others are sorted refreshable-first, least time left first, so others[next] is the
+                // most depleted remaining one; a new food just eaten is full and never a target.
+                ActiveFood other = next < others.Count ? others[next] : null;
+                bool otherReplaceable = other != null && other.CanEatAgain;
+                if (plannedTarget != null && (!otherReplaceable || plannedTarget.TimeLeft <= other.TimeLeft))
+                {
+                    advice.Planned.Add(new PlannedSlot(f, SlotState.RefreshFirst, 0f, plannedTarget.Id));
+                    continue;
+                }
+                float wait = other != null ? other.SecondsUntilRefreshable(rate) : 0f;
                 next++;
                 advice.Planned.Add(new PlannedSlot(f, wait <= 0f ? SlotState.EatNow : SlotState.EatLater, wait));
             }
