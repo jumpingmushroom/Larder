@@ -191,8 +191,23 @@ is an `ItemDrop` whose `IsPiece()` is true, so it appears in `Piece.s_allPieces`
   takes the game's style. Toggles the panel. Gamepad: the panel follows `PanelOpen` (open by
   default), so gamepad players see the plan; the Eat and goal buttons are mouse-only in 0.1.0,
   and the goal can also be set with `larder goal <name>`.
-- `LarderPanel`, to the right of the inventory/container block, built from the game's panel
-  background, fonts and item icons:
+- `LarderPanel`, hung off the inventory root (`InventoryGui.m_inventoryRoot`) and built from the
+  game's panel background sprite (colour alpha forced to at least 0.94, so it's opaque even where
+  the host block is translucent), fonts and item icons. `UI/Placement.cs` positions it in screen
+  space on every Show (and each frame for the next 0.5 s, while the chest block appears and the
+  screen animates in) and after every refresh, per `UI.Placement`:
+  - **Auto** (default): just right of the whole cluster of UI beside the inventory. Start from
+    `m_player`'s screen rect; candidates are the active, enabled Graphics under the inventory root
+    with visible colour, at least 8×8 px, not Larder's own, not empty text and not wider than half
+    the screen. A candidate that overlaps `m_player`'s vertical band and whose left edge lies
+    between `m_player`'s left edge and the cluster's right edge + 24 px extends the cluster
+    (`PlacementMath.ClusterRight`, repeated until nothing extends it), so another mod's extra-slot
+    grid next to the inventory is stepped over but a far-away panel (crafting) is not. The panel's
+    top-left goes 12 px right of the cluster, level with the top of `m_player`.
+  - **Below**: under the chest block when it's open, else under `m_player`, left-aligned with it.
+  - **Manual**: at the top-left of the screen, moved only by OffsetX/OffsetY.
+  - OffsetX/OffsetY (canvas units) are added in every mode, then the panel is clamped on screen.
+  Contents:
   - Goal selector (4 tabs).
   - **Best combo**: 3 rows of icon · name · HP / St / Eitr · duration · source · status label ·
     [Eat] when it's in the bag and edible now (`Player.CanEat(item, false)`).
@@ -217,8 +232,9 @@ no skipped vanilla code.
 | General | ShowUndiscovered | `false` | Allow suggestions of recipes you haven't discovered. |
 | General | IncludeCartsAndShips | `true` | Count carts and ship holds as containers. |
 | UI | PanelOpen | `true` | Remembered open/closed state. |
+| UI | Placement | `Auto` | `Auto` (right of everything beside the inventory), `Below` (under the chest/inventory) or `Manual` (from the screen's top-left by the offsets). |
 | UI | ToggleKey | none | Optional key that toggles the panel while the inventory is open. |
-| UI | OffsetX / OffsetY | `0` | Nudge the panel if another mod's UI overlaps it. |
+| UI | OffsetX / OffsetY | `0` | Nudge the panel (positive is right / up); in `Manual` the position from the screen's top-left. |
 | UI | Scale | `1` | Panel size. |
 | Logging | Verbose | `false` | Log snapshots, skipped items and plans. |
 

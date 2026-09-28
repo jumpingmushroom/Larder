@@ -17,6 +17,7 @@ namespace Larder.Core
                 return;
             if (PluginConfig.ToggleKey.Value.IsDown())
                 LarderPanel.Toggle();
+            LarderPanel.Settle();
             if (!LarderPanel.Visible || Time.unscaledTime < _next)
                 return;
             Refresh();
@@ -39,6 +40,7 @@ namespace Larder.Core
             {
                 Last = Planner.Compute(p, GoalStore.Get(p));
                 LarderPanel.Render(Last);
+                LarderPanel.ApplyLayout(); // Other mods may have moved their UI since the last refresh.
             }
             catch (Exception e)
             {

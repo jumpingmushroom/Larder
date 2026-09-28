@@ -2,6 +2,13 @@ using BepInEx.Configuration;
 
 namespace Larder
 {
+    public enum PanelPlacement
+    {
+        Auto,
+        Below,
+        Manual
+    }
+
     public static class PluginConfig
     {
         // General
@@ -12,6 +19,7 @@ namespace Larder
 
         // UI
         public static ConfigEntry<bool> PanelOpen;
+        public static ConfigEntry<PanelPlacement> Placement;
         public static ConfigEntry<KeyboardShortcut> ToggleKey;
         public static ConfigEntry<float> Scale;
         public static ConfigEntry<float> OffsetX;
@@ -45,6 +53,14 @@ namespace Larder
 
             PanelOpen = cfg.Bind("UI", "PanelOpen", true,
                 new ConfigDescription("Whether the panel is open. The Larder button toggles this.", null, Attr(80)));
+
+            Placement = cfg.Bind("UI", "Placement", PanelPlacement.Auto,
+                new ConfigDescription(
+                    "Where the panel goes. Auto: right of the inventory and anything other mods put beside it. " +
+                    "Below: under the chest window (or the inventory when no chest is open). " +
+                    "Manual: at OffsetX/OffsetY from the top-left of the screen (negative OffsetY moves down). " +
+                    "OffsetX/OffsetY nudge the Auto and Below positions too.",
+                    null, Attr(79)));
 
             ToggleKey = cfg.Bind("UI", "ToggleKey", KeyboardShortcut.Empty,
                 new ConfigDescription("Optional key that toggles the panel while the inventory is open.", null, Attr(78)));

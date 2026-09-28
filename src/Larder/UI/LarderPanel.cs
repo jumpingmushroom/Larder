@@ -8,12 +8,17 @@ using UnityEngine.UI;
 namespace Larder.UI
 {
     /// <summary>
-    /// The side panel and its toggle button, parented to the inventory screen's player block
-    /// (InventoryGui.m_player) so they move with it. The panel sits to its right.
+    /// The side panel and its toggle button. The toggle is parented to the inventory screen's player
+    /// block (InventoryGui.m_player) above its top-right corner; the panel hangs off the inventory
+    /// root (InventoryGui.m_inventoryRoot) and is positioned by <see cref="Placement"/>.
     /// </summary>
     internal static class LarderPanel
     {
         private const float Width = 380f;
+        private const float MinBgAlpha = 0.94f;
+        /// <summary>Seconds after Show during which every Tick re-applies the layout: the chest block is
+        /// activated in InventoryGui.Update after Show, and the screen may still be animating in.</summary>
+        private const float SettleTime = 0.5f;
         private static readonly Goal[] Goals = { Goal.Balanced, Goal.Health, Goal.Stamina, Goal.Eitr };
         private static readonly Color On = new Color(1f, 0.85f, 0.4f, 1f);
         private static readonly Color Off = new Color(0.7f, 0.7f, 0.7f, 1f);
@@ -26,6 +31,8 @@ namespace Larder.UI
         private static TextMeshProUGUI _cook;
         private static TextMeshProUGUI _status;
         private static bool _hooked;
+        private static InventoryGui _gui;
+        private static float _settleUntil;
 
         public static bool Visible
         {
@@ -51,6 +58,7 @@ namespace Larder.UI
             bool enabled = PluginConfig.Enabled.Value;
             _toggle.gameObject.SetActive(enabled);
             _root.gameObject.SetActive(enabled && PluginConfig.PanelOpen.Value);
+            _settleUntil = Time.unscaledTime + SettleTime;
             ApplyLayout();
             if (Visible)
                 Runtime.Refresh();
@@ -66,12 +74,29 @@ namespace Larder.UI
                 Runtime.Refresh();
         }
 
+        /// <summary>Called every Tick while the inventory is visible; re-lays out only while settling.</summary>
+        public static void Settle()
+        {
+            if (Visible && Time.unscaledTime < _settleUntil)
+                ApplyLayout();
+        }
+
+        /// <summary>Scale and position (PLAN §2.3). Runs on Show, after every Refresh and on layout
+        /// setting changes; never throws.</summary>
         public static void ApplyLayout()
         {
             if (_root == null)
                 return;
-            _root.anchoredPosition = new Vector2(12f + PluginConfig.OffsetX.Value, PluginConfig.OffsetY.Value);
-            _root.localScale = Vector3.one * PluginConfig.Scale.Value;
+            try
+            {
+                _root.localScale = Vector3.one * PluginConfig.Scale.Value;
+                if (Visible && _gui != null)
+                    Placement.Apply(_root, _gui, _toggle != null ? _toggle.transform : null);
+            }
+            catch (Exception e)
+            {
+                LarderPlugin.WarnOnce("Larder: panel layout failed", e);
+            }
         }
 
         /// <summary>Best-effort: sets the status text if the panel exists, and never throws itself.</summary>
@@ -100,6 +125,7 @@ namespace Larder.UI
             try
             {
                 BuildInternal(gui, host);
+                _gui = gui;
             }
             catch (Exception e)
             {
@@ -119,8 +145,12 @@ namespace Larder.UI
 
         private static void BuildInternal(InventoryGui gui, RectTransform host)
         {
-            _root = UiUtil.Rect("LarderPanel", host);
-            _root.anchorMin = _root.anchorMax = new Vector2(1f, 1f);
+            // Under the inventory root rather than the player block, so it draws above the blocks
+            // beside the inventory and doesn't inherit the player block's layout or scale.
+            var inventoryRoot = gui.m_inventoryRoot as RectTransform;
+            _root = UiUtil.Rect("LarderPanel", inventoryRoot != null ? inventoryRoot : host);
+            _root.SetAsLastSibling();
+            _root.anchorMin = _root.anchorMax = new Vector2(0.5f, 0.5f);
             _root.pivot = new Vector2(0f, 1f);
             _root.sizeDelta = new Vector2(Width, 0f);
 
@@ -130,12 +160,14 @@ namespace Larder.UI
             {
                 bg.sprite = hostBg.sprite;
                 bg.type = hostBg.type;
-                bg.color = hostBg.color;
+                Color c = hostBg.color;
+                c.a = Mathf.Max(c.a, MinBgAlpha); // Opaque even where the host block is translucent.
+                bg.color = c;
             }
             else
             {
                 bg.sprite = UiUtil.White;
-                bg.color = new Color(0.1f, 0.09f, 0.08f, 0.9f);
+                bg.color = new Color(0.1f, 0.09f, 0.08f, MinBgAlpha);
             }
 
             var layout = _root.gameObject.AddComponent<VerticalLayoutGroup>();
@@ -180,6 +212,7 @@ namespace Larder.UI
                 PluginConfig.Scale.SettingChanged += (s, e) => ApplyLayout();
                 PluginConfig.OffsetX.SettingChanged += (s, e) => ApplyLayout();
                 PluginConfig.OffsetY.SettingChanged += (s, e) => ApplyLayout();
+                PluginConfig.Placement.SettingChanged += (s, e) => ApplyLayout();
                 PluginConfig.Radius.SettingChanged += (s, e) => Runtime.RequestRefresh();
                 PluginConfig.ShowUndiscovered.SettingChanged += (s, e) => Runtime.RequestRefresh();
                 PluginConfig.IncludeCartsAndShips.SettingChanged += (s, e) => Runtime.RequestRefresh();
