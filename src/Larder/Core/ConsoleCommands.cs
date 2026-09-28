@@ -30,7 +30,7 @@ namespace Larder.Core
                     if (sub == "goal")
                     {
                         Goal g;
-                        if (args.Length > 2 && Enum.TryParse(args[2], true, out g))
+                        if (args.Length > 2 && Enum.TryParse(args[2], true, out g) && Enum.IsDefined(typeof(Goal), g))
                             GoalStore.Set(p, g);
                         Say(args.Context, "Larder: goal " + GoalStore.Get(p));
                         Runtime.Refresh();
@@ -50,15 +50,23 @@ namespace Larder.Core
 
         private static void Foods(Terminal ctx)
         {
-            FoodCatalog.EnsureBuilt();
-            var foods = new List<FoodStats>(FoodCatalog.Foods.Values);
-            foods.Sort((a, b) => (b.Health + b.Stamina + b.Eitr).CompareTo(a.Health + a.Stamina + a.Eitr));
-            foreach (FoodStats f in foods)
-                Say(ctx, "Larder:   " + f.Id + " " + f.Name + " " + f.Health + "/" + f.Stamina + "/" + f.Eitr +
-                    " " + Labels.Duration(f.BurnTime) + " regen " + f.Regen + " producers " + FoodCatalog.Producers.For(f.Id).Count);
-            foreach (KeyValuePair<string, string> kv in FoodCatalog.FeastFood)
-                Say(ctx, "Larder:   feast item " + kv.Key + " -> food " + kv.Value);
-            Say(ctx, "Larder: " + foods.Count + " foods, " + FoodCatalog.FeastFood.Count + " feasts, " + FoodCatalog.Dishes.Count + " dishes.");
+            try
+            {
+                FoodCatalog.EnsureBuilt();
+                var foods = new List<FoodStats>(FoodCatalog.Foods.Values);
+                foods.Sort((a, b) => (b.Health + b.Stamina + b.Eitr).CompareTo(a.Health + a.Stamina + a.Eitr));
+                foreach (FoodStats f in foods)
+                    Say(ctx, "Larder:   " + f.Id + " " + f.Name + " " + f.Health + "/" + f.Stamina + "/" + f.Eitr +
+                        " " + Labels.Duration(f.BurnTime) + " regen " + f.Regen + " producers " + FoodCatalog.Producers.For(f.Id).Count);
+                foreach (KeyValuePair<string, string> kv in FoodCatalog.FeastFood)
+                    Say(ctx, "Larder:   feast item " + kv.Key + " -> food " + kv.Value);
+                Say(ctx, "Larder: " + foods.Count + " foods, " + FoodCatalog.FeastFood.Count + " feasts, " + FoodCatalog.Dishes.Count + " dishes.");
+            }
+            catch (Exception e)
+            {
+                Say(ctx, "Larder: couldn't list foods: " + e.Message);
+                LarderPlugin.WarnOnce("Larder: foods command failed", e);
+            }
         }
     }
 }

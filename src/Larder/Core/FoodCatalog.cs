@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Larder.Core.Model;
 using UnityEngine;
@@ -79,18 +80,33 @@ namespace Larder.Core
             {
                 if (r == null || !r.m_enabled || r.m_item == null || r.m_resources == null)
                     continue;
-                var inputs = new List<Ingredient>();
-                foreach (Piece.Requirement req in r.m_resources)
+                // A modded recipe with a broken item/resource reference (missing m_itemData or
+                // m_shared) must not abort the whole build: skip just that recipe and keep going,
+                // so EnsureBuilt's counters still get set below and this doesn't rebuild every call.
+                try
                 {
-                    if (req != null && req.m_resItem != null && req.m_amount > 0)
+                    if (r.m_item.m_itemData == null || r.m_item.m_itemData.m_shared == null)
+                        continue;
+                    var inputs = new List<Ingredient>();
+                    foreach (Piece.Requirement req in r.m_resources)
+                    {
+                        if (req == null || req.m_resItem == null || req.m_amount <= 0)
+                            continue;
+                        if (req.m_resItem.m_itemData == null || req.m_resItem.m_itemData.m_shared == null)
+                            continue;
                         inputs.Add(new Ingredient(req.m_resItem.m_itemData.m_shared.m_name, req.m_amount));
+                    }
+                    if (inputs.Count == 0)
+                        continue;
+                    string station = r.m_craftingStation != null ? r.m_craftingStation.m_name : "";
+                    Name(station, station);
+                    producers.Add(new Producer(ProducerKind.Recipe, r.m_item.m_itemData.m_shared.m_name, r.m_amount,
+                        station, r.m_minStationLevel, inputs, r.m_requireOnlyOneIngredient));
                 }
-                if (inputs.Count == 0)
-                    continue;
-                string station = r.m_craftingStation != null ? r.m_craftingStation.m_name : "";
-                Name(station, station);
-                producers.Add(new Producer(ProducerKind.Recipe, r.m_item.m_itemData.m_shared.m_name, r.m_amount,
-                    station, r.m_minStationLevel, inputs, r.m_requireOnlyOneIngredient));
+                catch (Exception e)
+                {
+                    LarderPlugin.WarnOnce("Larder: bad recipe " + r.name, e);
+                }
             }
 
             foreach (GameObject go in scene.m_prefabs)
@@ -145,8 +161,18 @@ namespace Larder.Core
         {
             if (from == null || to == null)
                 return;
-            producers.Add(new Producer(ProducerKind.Conversion, to.m_itemData.m_shared.m_name, 1, stationId, 1,
-                new[] { new Ingredient(from.m_itemData.m_shared.m_name, 1) }));
+            try
+            {
+                if (from.m_itemData == null || from.m_itemData.m_shared == null ||
+                    to.m_itemData == null || to.m_itemData.m_shared == null)
+                    return;
+                producers.Add(new Producer(ProducerKind.Conversion, to.m_itemData.m_shared.m_name, 1, stationId, 1,
+                    new[] { new Ingredient(from.m_itemData.m_shared.m_name, 1) }));
+            }
+            catch (Exception e)
+            {
+                LarderPlugin.WarnOnce("Larder: bad conversion " + stationId + " " + to.name, e);
+            }
         }
 
         private static string StationId(Piece piece, string fallback)

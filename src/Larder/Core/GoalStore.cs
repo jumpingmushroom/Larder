@@ -12,7 +12,7 @@ namespace Larder.Core
         {
             string s;
             Goal g;
-            if (p != null && p.m_customData.TryGetValue(Key, out s) && Enum.TryParse(s, out g))
+            if (p != null && p.m_customData.TryGetValue(Key, out s) && Enum.TryParse(s, out g) && Enum.IsDefined(typeof(Goal), g))
                 return g;
             return Goal.Balanced;
         }

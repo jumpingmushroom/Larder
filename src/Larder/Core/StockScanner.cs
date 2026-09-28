@@ -68,13 +68,18 @@ namespace Larder.Core
                 }
 
                 Container c = piece.GetComponentInChildren<Container>();
-                if (c == null || !CanOpen(c, me))
+                // A build-placement ghost's Container never got a ZDO (Container.cs Awake, ~line
+                // 67: m_inventory/m_piece are only set "if (m_nview.GetZDO() != null)"), so
+                // GetInventory() is null and the private CheckAccess would NRE on m_piece; check
+                // that before touching access at all. Tombstones (Container on the same
+                // GameObject, TombStone.cs:37) are excluded (PLAN §1.4).
+                if (c == null || c.GetComponent<TombStone>() != null)
+                    continue;
+                Inventory inv = c.GetInventory();
+                if (inv == null || !CanOpen(c, me))
                     continue;
                 bool vehicle = c.m_wagon != null || piece.GetComponent<Ship>() != null;
                 if (vehicle && !PluginConfig.IncludeCartsAndShips.Value)
-                    continue;
-                Inventory inv = c.GetInventory();
-                if (inv == null)
                     continue;
                 snap.Containers++;
                 AddInventory(snap, inv, SourceKind.Container, FoodCatalog.ItemName(c.m_name) + " " + Meters(d), d);
