@@ -7,6 +7,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8B92BA5E-D48
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Larder", "src\Larder\Larder.csproj", "{BF89B2FD-F5EE-45AF-9583-3A79149A8863}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{20AA7C19-2233-4286-A1CE-A42B7DE5E66D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Larder.Tests", "tests\Larder.Tests\Larder.Tests.csproj", "{0D6ECC90-73A2-49A5-ADE5-42AEA5245E52}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,8 +24,13 @@ Global
 		{BF89B2FD-F5EE-45AF-9583-3A79149A8863}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BF89B2FD-F5EE-45AF-9583-3A79149A8863}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{BF89B2FD-F5EE-45AF-9583-3A79149A8863}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0D6ECC90-73A2-49A5-ADE5-42AEA5245E52}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0D6ECC90-73A2-49A5-ADE5-42AEA5245E52}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0D6ECC90-73A2-49A5-ADE5-42AEA5245E52}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0D6ECC90-73A2-49A5-ADE5-42AEA5245E52}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{BF89B2FD-F5EE-45AF-9583-3A79149A8863} = {8B92BA5E-D48E-4CEB-9D2B-AF181074641A}
+		{0D6ECC90-73A2-49A5-ADE5-42AEA5245E52} = {20AA7C19-2233-4286-A1CE-A42B7DE5E66D}
 	EndGlobalSection
 EndGlobal
