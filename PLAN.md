@@ -1,0 +1,289 @@
+# Larder — Technical Plan
+
+**Idea:** a food planner that lives in the inventory screen. It looks at the food you actually
+have (bag, chests you can open nearby, placed feasts), picks the best three for your goal, tells
+you which of those you can eat right now, and names the **one dish to cook next** that would
+improve the combo, with its ingredients as have / need.
+
+**Target build:** Valheim 1.0.16 (Unity 6), network version 40
+(`Version.CurrentVersion = new GameVersion(1, 0, 16)`, `c_networkVersion = 40u`). Findings below
+come from the rig's `valheim_Data/Managed/assembly_valheim.dll` (copied 2026-09-28) decompiled
+with `ilspycmd`. `lib/` gets a fresh copy from the rig before building, per the sibling repos'
+rule.
+
+**Scope:** client-side only. No RPCs of our own, no ZDO writes, nothing on the server; works on
+vanilla servers. Thunderstore namespace `Jumpingmushroom`, package `Larder`, GUID
+`com.jumpingmushroom.larder`, repo `github.com/jumpingmushroom/Larder`. BepInEx only, no Jotunn.
+Repo layout, build scripts, publicizer setup and release steps are the same as Milestones'.
+
+**Prior art (checked 2026-09-28):**
+- **FeastPlanner** (LongHouseListings, 2026-06, needs Jotunn): hotkey window (RightAlt+P) with
+  role/biome meal templates, hidden undiscovered recipes, inventory + nearby-container
+  craftability counts, saved custom plans. Advisory only.
+- **Glutton Food Manager** (2021), **HearthPantry** (2026-09): auto-eaters.
+- Food-stat editors.
+
+Larder is different by design: it sits in the inventory/chest screen (no hotkey window), plans
+from **what you own**, not templates, suggests the **one dish to cook next** with its ingredient
+chain, shows **slot timing** ("refresh in 6m"), and offers an Eat button. It does not auto-eat
+and has no templates or saved plans. The README and Thunderstore description lead with these
+points.
+
+**Decisions agreed (2026-09-28 design review):**
+- Main use: at base, before heading out. The planner is a **side panel on the inventory screen**,
+  opened by a *Larder* button; it remembers whether it was open. Works with or without a chest
+  open.
+- Goals: **Health**, **Stamina**, **Eitr**, **Balanced** (= health + stamina, eitr ignored).
+  Selected goal is remembered per character.
+- Rank by full stats. Duration is a tie-breaker and is displayed, not modelled (§1.2).
+- Active foods: plan the ideal combo, then annotate each line: *active, 18m left* / *can refresh
+  now* / *eat now*, and for an active food not in the plan, *slot frees in Xm*.
+- Sources: bag + containers you can open within **20 m** (chests, carts, ship holds; wards and
+  private chests respected; tombstones excluded) + placed feasts with portions left.
+- Cook next: the best upgrade **ready now** (all ingredients in bag + chests, station in range at
+  the right level) plus one **"if you had…"** pick that beats it, with have / need per ingredient
+  and intermediates expanded up to 3 steps.
+- Spoilers: only discovered recipes are suggested. `ShowUndiscovered` (off) lifts that. Food you
+  own is never hidden.
+- Eat button for bag items only, using the same code path as right-clicking the item. Food in
+  chests is advice only.
+- Feasts: a placed feast in range is a source; a feast item in bag or chest counts as "place it,
+  then eat"; feast recipes are cook-next candidates. The feast buff is shown, not scored.
+- UI built with Unity UI (uGUI + TextMeshPro) from the game's own assets, like Milestones.
+- Thunderstore categories as the siblings: `client-side`, `utility`, `ai-generated`.
+
+---
+
+## 1. How vanilla food works
+
+### 1.1 Food data (`ItemDrop.ItemData.SharedData`)
+
+| Field | Meaning |
+|---|---|
+| `m_food` | max health added |
+| `m_foodStamina` | max stamina added |
+| `m_foodEitr` | max eitr added |
+| `m_foodBurnTime` | duration in seconds |
+| `m_foodRegen` | health healed per 10 s tick |
+| `m_isDrink`, `m_foodEatAnimTime` | presentation only |
+| `m_consumeStatusEffect` | optional buff applied on eating (feasts, meads) |
+
+Everything comes from each item's shared data, so a food added by a patch or another mod is
+picked up without code changes.
+
+**Only items with `m_food > 0` occupy a food slot.** `Player.CanConsumeItem` only calls
+`CanEat` when `m_food > 0`, and `Player.ConsumeItem` only calls `EatFood` when `m_food > 0`. An
+item with stamina or eitr but zero health is consumed for its status effect only. Larder's food
+filter is therefore `m_food > 0`, and the rule is the game's, not ours.
+
+### 1.2 Slots, re-eating and decay (`Player`)
+
+- `m_maxFoods = 3`; foods live in `m_foods` (`List<Player.Food>`: `m_item`, `m_time`, `m_health`,
+  `m_stamina`, `m_eitr`).
+- **No duplicates:** `CanEat` matches on `m_shared.m_name`. The same food can be eaten again
+  only when `Food.CanEatAgain()`, i.e. `m_time < m_foodBurnTime / 2`, which resets its timer.
+- **Full slots:** with three foods, `CanEat` still returns true if *any* food is under half.
+  `EatFood` then replaces `GetMostDepletedFood()`, the refreshable food with the least time
+  left. So a slot "frees" when a food drops under half its duration, not when it expires.
+- **Decay** (`UpdateFood`, once per second scaled by `Game.m_foodRate`, the world modifier):
+  `value = max × Clamp01(m_time / m_foodBurnTime)^0.3`. Every food follows the same curve, so
+  the lifetime average is `max / 1.3 ≈ 77 %` for all of them and **duration never changes which
+  food is stronger**; it only changes how often you eat. Hence ranking by max values.
+- Totals (`GetTotalFoodValue`): health `m_baseHP = 25` + foods, stamina `m_baseStamina = 75` +
+  foods, eitr `0` + foods. Regen: sum of `m_foodRegen` every 10 s.
+- Real time left = `m_time / Game.m_foodRate`.
+
+### 1.3 Feasts (`Feast : MonoBehaviour, Hoverable, Interactable`)
+
+A placed feast has `m_eatStacks = 5` portions, and the stack lives in the ZDO (`ZDOVars.s_value`,
+`-1` when empty; `GetStack()`). The food comes from `m_foodItem`, the feast's own `ItemDrop` if
+unset. Eating goes through `RPC_TryEat` on the owner, then `RPC_EatConfirmation` back to the
+eater, which applies `m_consumeStatusEffect` and calls `Player.EatFood(m_foodItem.m_itemData)`.
+Larder only reads `GetStack()` and `m_foodItem`, and never eats a feast for you. A placed feast
+is an `ItemDrop` whose `IsPiece()` is true, so it appears in `Piece.s_allPieces`.
+
+### 1.4 Containers
+
+- A `Container` loads its inventory from the ZDO and refreshes it from `CheckForChanges`
+  (`InvokeRepeating`, every 1 s), on every client, whether or not it is open. Reading a chest's
+  contents is safe on a client and needs no server support.
+- Access, mirroring `Container.Interact`: `m_checkGuardStone && !PrivateArea.CheckAccess(pos, 0f,
+  flash: false)` means no access (ward); then the private `Container.CheckAccess(playerID)`:
+  `Public` yes, `Private` only for `m_piece.GetCreator()`, `Group` no. Private methods are
+  reachable through the build-time publicizer.
+- Carts (`m_wagon`) and ship holds are containers on pieces; the `Container` may sit on a child
+  object. Tombstones (`TombStone` component) are excluded.
+- No static list of containers exists. Enumerate `Piece.s_allPieces` (private, publicized),
+  filter by distance, then `GetComponentInChildren<Container>()` / `GetComponent<Feast>()`.
+
+### 1.5 Recipes, stations and conversions
+
+- `ObjectDB.instance.m_recipes`: `Recipe { m_item, m_amount, m_enabled, m_craftingStation,
+  m_minStationLevel, m_requireOnlyOneIngredient, m_resources: Piece.Requirement[] }`. Food recipes
+  are those whose `m_item` passes the food filter (cauldron, food preparation table for feasts).
+- Station presence and level: `CraftingStation.FindStationsInRange(name, point, range, list)`
+  over `m_allStations`, then `GetLevel()` against `m_minStationLevel`.
+- Conversions: `CookingStation.m_conversion` (cooking station, iron cooking station, oven,
+  `m_from` → `m_to`) and `Smelter.m_conversion` (windmill: barley → flour, and the like). Read
+  from the prefabs in `ZNetScene.instance.m_prefabs`, so modded stations are included.
+- Discovery: `Player.IsRecipeKnown(itemSharedName)` for recipes, `Player.IsMaterialKnown(sharedName)`
+  for items seen. A conversion product counts as discovered once its result is a known material.
+
+### 1.6 Inventory screen and eating
+
+- `InventoryGui.Show(Container, int)` / `Hide()`, `InventoryGui.IsVisible()`,
+  `IsContainerOpen()`, `m_currentContainer`.
+- Right-click to use goes through `Humanoid.UseItem(inventory, item, fromInventoryGui: true)` →
+  `Player.ConsumeItem`, which runs every vanilla check (`CanEat` with messages, status-effect
+  conflicts). The Eat button calls exactly this.
+
+---
+
+## 2. Design
+
+### 2.1 Core model: `Core/Model/` (pure C#, no Unity or game types, xUnit-tested)
+
+- `FoodStats { Id, Name, Health, Stamina, Eitr, BurnTime, Regen }`.
+- `Goal { Health, Stamina, Eitr, Balanced }`; `Score(goal, stats)` returns a tuple compared
+  lexicographically:
+  - Health: `(ΣHP, ΣSt + ΣEitr, ΣRegen, ΣBurnTime)`; Stamina and Eitr likewise with their stat
+    first.
+  - Balanced: `(ΣHP + ΣSt, ΣEitr, ΣRegen, ΣBurnTime)`.
+- `ComboSolver.Best(pool, goal)` → best 3 distinct foods (by `Id` = shared name) from the pool.
+  Brute force over all triples; pools are at most a few hundred, so this is well under a
+  millisecond. With fewer than three foods it returns what exists.
+- `SlotAdvisor`: given the plan and the active foods (`m_time`, burn time, `foodRate`), label
+  each planned food *active Xm left* / *can refresh now* / *eat now* / *eat in Xm* (all slots
+  full and none refreshable), and each active food outside the plan *slot frees in Xm* (time
+  until it drops under half).
+- `CookPlanner`: a producer graph. `Producer = Recipe(station, level, inputs×n, yield) |
+  Conversion(stationKind, from, to)`. `Resolve(target, stock, stations, depth ≤ 3)` returns a
+  tree of steps with have / need per leaf, the missing items, the missing stations, and
+  `ReadyNow`. Guards against cycles, consumes stock across the tree so one Lox meat isn't
+  counted twice, and treats `m_requireOnlyOneIngredient` as "any one of".
+- `CookAdvisor`: for each discovered dish not already in the pool, re-solve the combo with it
+  added; `gain = newScore − baseScore`. **Ready pick** = the highest gain with `ReadyNow`. **Almost
+  pick** = the highest gain that beats the ready pick, where every missing ingredient is a known
+  material (unless `ShowUndiscovered`). Dishes with zero gain are never suggested.
+
+### 2.2 Game adapters: `Core/`
+
+- `FoodCatalog`: built when `ObjectDB` and `ZNetScene` are ready, and rebuilt if the item count
+  changes (mods registering late). It collects food items, producers from recipes and from
+  `CookingStation` / `Smelter` / `Feast` prefabs, and the feast-item → food-item mapping.
+- `StockScanner`: snapshot of bag + accessible containers within `Radius` + placed feasts with
+  `GetStack() > 0`. Per item: count, and sources with a label and distance ("bag", "Chest 4m",
+  "Cart 12m", "Feast 6m"). A feast item in a container counts as a food source labelled "place,
+  then eat".
+- `StationScanner`: crafting stations by name → highest level in range; conversion stations
+  present in range.
+- `ActiveFoods`: reads `Player.m_foods` and `Game.m_foodRate`.
+- `Runtime`: owns the snapshot → model → view cycle. It runs only while the panel is visible and
+  re-snapshots about once a second. Everything is wrapped in try/catch; on failure the panel shows
+  "couldn't read …" and the log says why. Scanning must never break the inventory screen.
+
+### 2.3 UI: `UI/`
+
+- `LarderButton`: a small button on the inventory screen, cloned from a vanilla button so it
+  takes the game's style. Toggles the panel. Gamepad: a bindable key (default: none, the button
+  is reachable with the gamepad cursor).
+- `LarderPanel`, to the right of the inventory/container block, built from the game's panel
+  background, fonts and item icons:
+  - Goal selector (4 tabs).
+  - **Best combo**: 3 rows of icon · name · HP / St / Eitr · duration · source · status label ·
+    [Eat] when it's in the bag and edible now (`Player.CanEat(item, false)`).
+  - Totals: HP / St / Eitr including base, and the change from what you have now.
+  - **Cook next**: ready pick and almost pick, each with its station (level, in range or not)
+    and an ingredient list with have / need, intermediates indented.
+  - Empty states: "No food nearby", "Nothing you can cook improves this combo".
+- Item names come from the game's localisation (`Localization.instance.Localize`); Larder's own
+  labels are English in 0.1.0.
+
+### 2.4 Patches: `Patches/InventoryPatches.cs`
+
+Postfixes on `InventoryGui.Show` / `Hide` (and `Awake` to build the button once). No prefixes,
+no skipped vanilla code.
+
+### 2.5 Config (BepInEx, `com.jumpingmushroom.larder.cfg`, editable in-game via F1)
+
+| Section | Setting | Default | Meaning |
+|---|---|---|---|
+| General | Enabled | `true` | Master switch. |
+| General | Radius | `20` | Metres to search for chests, feasts and stations. |
+| General | ShowUndiscovered | `false` | Allow suggestions of recipes you haven't discovered. |
+| General | IncludeCartsAndShips | `true` | Count carts and ship holds as containers. |
+| UI | PanelOpen | `true` | Remembered open/closed state. |
+| UI | Scale | `1` | Panel size. |
+| Logging | Verbose | `false` | Log snapshots, skipped items and plans. |
+
+The goal is stored per character in `Player.m_customData["larder.goal"]` (local save only,
+nothing synced).
+
+### 2.6 Console
+
+`larder` prints the current snapshot summary, the plan and the cook-next picks to the console
+and the BepInEx log. `larder foods` lists the catalogue with stats. Used for rig testing via
+`build/logs.sh`.
+
+---
+
+## 3. Project layout
+
+Same as Milestones:
+
+```
+Larder/
+  PLAN.md  README.md  CHANGELOG.md  CLAUDE.md  LICENSE (MIT)
+  Directory.Build.props  Larder.sln  .gitignore
+  build/  package.sh  publish.sh  make_icon.py      (+ local, gitignored: deploy.sh logs.sh shot.sh crop.sh)
+  lib/    (gitignored, from the rig)
+  src/Larder/  Larder.csproj  Plugin.cs  PluginConfig.cs  ConfigurationManagerAttributes.cs
+               Core/  Core/Model/  Patches/  UI/
+  tests/Larder.Tests/   (net8.0, xUnit, compiles Core/Model only)
+  thunderstore/  manifest.json  README.md  icon.png
+  docs/images/
+```
+
+Version lives in three places (`PluginVersion` in `Plugin.cs`, `<Version>` in the csproj,
+`version_number` in `thunderstore/manifest.json`); `package.sh` refuses to package if the first
+and last disagree.
+
+## 4. Build order for 0.1.0
+
+1. Scaffold from Milestones (props, csproj, sln, scripts, `.gitignore`, `CLAUDE.md`), a fresh
+   `lib/` from the rig, a plugin that loads and logs.
+2. `Core/Model` with tests: solver, scoring, slot advisor, cook planner, cook advisor.
+3. `FoodCatalog`, `StockScanner`, `StationScanner`, `ActiveFoods`, and the `larder` console
+   command. Verify on the rig from the log before any UI.
+4. Button + panel with combo, totals and status labels.
+5. Eat button.
+6. Cook-next section.
+7. Config polish, README + Thunderstore README with screenshots, icon, CHANGELOG.
+8. Release 0.1.0: bump versions, `./build/package.sh`, commit `0.1.0`, tag `v0.1.0`, push,
+   `gh release create v0.1.0 dist/Larder-0.1.0.zip`, then
+   `scp dist/Larder-0.1.0.zip equ@192.168.1.160:~/Downloads/`. The Thunderstore upload is the
+   user's.
+
+Every change is committed and pushed. No AI attribution in commits, PRs, README or release notes.
+
+## 5. Later (not 0.1.0)
+
+- Take food from the open chest / one "eat whole combo" button.
+- Hint on the cooking station / cauldron hover.
+- Planning 2–3 dishes at once.
+- Scoring feast buffs, meads and potions.
+- Translating Larder's own labels.
+
+Out of scope: auto-eating, biome/role templates, saved plans.
+
+## 6. To verify on the rig
+
+- Carts and ship holds: where the `Container` sits relative to the `Piece`, and that
+  `GetComponentInChildren` finds it.
+- A feast item in inventory: that its `m_dropPrefab` carries `Feast`, and which `m_foodItem`
+  it points at.
+- `Piece.s_allPieces` includes placed feasts and every chest in the loaded area.
+- Cost of a full snapshot in a large base (target < 2 ms; otherwise cache pieces by position and
+  refresh less often).
+- `UseItem(…, fromInventoryGui: true)` from our button plays the eat animation and messages as a
+  right-click does.
