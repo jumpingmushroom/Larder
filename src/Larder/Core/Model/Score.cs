@@ -4,13 +4,11 @@ using System.Collections.Generic;
 namespace Larder.Core.Model
 {
     /// <summary>
-    /// A lexicographic score: A decides, then B, C, D. Values within Epsilon compare equal, so
-    /// the same foods summed in another order score the same.
+    /// A lexicographic score: A decides, then B, C, D. Values are compared after rounding to 0.001
+    /// precision, so the same foods summed in another order score the same.
     /// </summary>
     public struct Score : IComparable<Score>
     {
-        public const float Epsilon = 0.001f;
-
         public readonly float A;
         public readonly float B;
         public readonly float C;
@@ -38,7 +36,7 @@ namespace Larder.Core.Model
 
         private static int Cmp(float x, float y)
         {
-            return Math.Abs(x - y) <= Epsilon ? 0 : (x < y ? -1 : 1);
+            return Math.Round(x * 1000.0).CompareTo(Math.Round(y * 1000.0));
         }
 
         public static bool operator >(Score a, Score b)

@@ -104,6 +104,44 @@ namespace Larder.Tests
             }
         }
 
+        [Fact]
+        public void ScoreComparisonIsTransitive()
+        {
+            // Values that violate transitivity under epsilon compare:
+            // 0 ≈ 0.0009 ≈ 0.0018 but 0 < 0.0018 (non-transitive under epsilon)
+            // Under quantised comparison (rounded to 0.001), the ordering is strict and thus transitive
+            var s0 = new Score(0f, 1f, 1f, 1f);
+            var s1 = new Score(0.0009f, 1f, 1f, 1f);
+            var s2 = new Score(0.0018f, 1f, 1f, 1f);
+
+            int c01 = s0.CompareTo(s1);
+            int c12 = s1.CompareTo(s2);
+            int c02 = s0.CompareTo(s2);
+
+            // Transitivity check: the comparison is transitive
+            // If c01 == c12 == 0, then c02 == 0
+            // If c01 and c12 have the same sign, c02 should have that sign (or be more extreme)
+            if (c01 == 0 && c12 == 0)
+            {
+                Assert.Equal(0, c02);
+            }
+            // The key is: no contradictory orderings like s0<s1 and s1<s2 but s0>s2
+            Assert.False(c01 > 0 && c12 > 0 && c02 < 0);
+            Assert.False(c01 < 0 && c12 < 0 && c02 > 0);
+        }
+
+        [Fact]
+        public void SumOfFoodsInDifferentOrderComparesEqual()
+        {
+            var foods1 = new[] { F("a", 33.3f, 12.7f, 0.1f), F("b", 25.9f, 44.2f, 5.3f), F("c", 10.1f, 33.7f, 2.2f) };
+            var foods2 = new[] { F("c", 10.1f, 33.7f, 2.2f), F("b", 25.9f, 44.2f, 5.3f), F("a", 33.3f, 12.7f, 0.1f) };
+
+            Score score1 = Scoring.Of(Goal.Health, foods1);
+            Score score2 = Scoring.Of(Goal.Health, foods2);
+
+            Assert.Equal(0, score1.CompareTo(score2));
+        }
+
         private static IEnumerable<List<FoodStats>> Subsets(List<FoodStats> pool, int k, int start)
         {
             if (k == 0)
