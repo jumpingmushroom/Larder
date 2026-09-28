@@ -71,9 +71,15 @@ namespace Larder.UI
                 ItemDrop.ItemData item = FindInBag(p, foodId);
                 if (item == null || !p.CanEat(item, false))
                     break;
+                // Inventory.RemoveOneItem decrements m_stack on the same object rather than removing
+                // it while m_stack > 1 (stacked food, the common case), so "gone from the bag" alone
+                // can't tell a successful eat from a blocked one; a lower stack count can.
+                int stackBefore = item.m_stack;
                 p.UseItem(p.GetInventory(), item, true);
-                if (FindInBag(p, foodId) != null)
-                    break; // still in the bag: the eat didn't take (status effect conflict, etc.)
+                ItemDrop.ItemData after = FindInBag(p, foodId);
+                bool consumed = after == null || after.m_stack < stackBefore;
+                if (!consumed)
+                    break; // still in the bag at the same count: the eat didn't take (status effect conflict, etc.)
             }
         }
 
