@@ -148,8 +148,9 @@ namespace Larder.Core
         private static void AddFood(ItemDrop.ItemData item)
         {
             ItemDrop.ItemData.SharedData s = item.m_shared;
-            // Player.ConsumeItem only calls EatFood when m_food > 0 (PLAN §1.1).
-            if (s.m_food <= 0f || Foods.ContainsKey(s.m_name))
+            // Only Consumables can be eaten (Humanoid.CanConsumeItem/UseItem; raw meat has m_food > 0
+            // but is a Material), and Player.ConsumeItem only calls EatFood when m_food > 0 (PLAN §1.1).
+            if (s.m_itemType != ItemDrop.ItemData.ItemType.Consumable || s.m_food <= 0f || Foods.ContainsKey(s.m_name))
                 return;
             Foods[s.m_name] = new FoodStats(s.m_name, ItemName(s.m_name), s.m_food, s.m_foodStamina, s.m_foodEitr,
                 s.m_foodBurnTime, s.m_foodRegen);

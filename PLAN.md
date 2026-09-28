@@ -71,10 +71,13 @@ points.
 Everything comes from each item's shared data, so a food added by a patch or another mod is
 picked up without code changes.
 
-**Only items with `m_food > 0` occupy a food slot.** `Player.CanConsumeItem` only calls
-`CanEat` when `m_food > 0`, and `Player.ConsumeItem` only calls `EatFood` when `m_food > 0`. An
-item with stamina or eitr but zero health is consumed for its status effect only. Larder's food
-filter is therefore `m_food > 0`, and the rule is the game's, not ours.
+**Only Consumable items with `m_food > 0` occupy a food slot.** `Humanoid.CanConsumeItem`
+returns false unless `m_itemType == Consumable`, and `Humanoid.UseItem` only consumes Consumables
+(feast pieces are Consumable too), so raw meats, which carry `m_food > 0` but are Materials, can't
+be eaten. `Player.CanConsumeItem` only calls `CanEat` when `m_food > 0`, and
+`Player.ConsumeItem` only calls `EatFood` when `m_food > 0`. An item with stamina or eitr but zero
+health is consumed for its status effect only. Larder's food filter is therefore
+`m_itemType == Consumable && m_food > 0`, and the rule is the game's, not ours.
 
 ### 1.2 Slots, re-eating and decay (`Player`)
 
