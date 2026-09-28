@@ -21,7 +21,8 @@ namespace Larder.Core.Model
 
             for (int i = 0; i < MaxEats; i++)
             {
-                SlotAdvice advice = SlotAdvisor.Advise(plan, sim, foodRate);
+                List<FoodStats> reachable = Reachable(plan, sim, inBag);
+                SlotAdvice advice = SlotAdvisor.Advise(reachable, sim, foodRate);
                 PlannedSlot candidate = PickCandidate(advice, inBag, eaten);
                 if (candidate == null)
                     break;
@@ -32,6 +33,24 @@ namespace Larder.Core.Model
             }
 
             return result;
+        }
+
+        /// <summary>A planned food that's neither active nor in the bag can't be eaten or refreshed
+        /// this click, so it must not be handed a free slot or an eviction target ahead of a planned
+        /// food that actually can be eaten (SlotAdvisor assigns slots in plan order).</summary>
+        private static List<FoodStats> Reachable(IList<FoodStats> plan, List<ActiveFood> active, ISet<string> inBag)
+        {
+            var activeIds = new HashSet<string>();
+            foreach (ActiveFood a in active)
+                activeIds.Add(a.Id);
+
+            var reachable = new List<FoodStats>();
+            foreach (FoodStats f in plan)
+            {
+                if (activeIds.Contains(f.Id) || inBag.Contains(f.Id))
+                    reachable.Add(f);
+            }
+            return reachable;
         }
 
         private static PlannedSlot PickCandidate(SlotAdvice advice, ISet<string> inBag, HashSet<string> eaten)

@@ -40,8 +40,8 @@ namespace Larder.UI
         }
 
         /// <summary>The "Eat N" button: eats every planned food it safely can from the bag, in order,
-        /// re-reading the game between eats since UseItem changes it. Bag only (PLAN "Eat button for
-        /// bag items only"); never throws out into Unity's event system.</summary>
+        /// re-reading the game between eats since UseItem changes it. Bag only (PLAN §2.3); never
+        /// throws out into Unity's event system.</summary>
         public static void EatAll()
         {
             try
@@ -73,11 +73,13 @@ namespace Larder.UI
                     break;
                 // Inventory.RemoveOneItem decrements m_stack on the same object rather than removing
                 // it while m_stack > 1 (stacked food, the common case), so "gone from the bag" alone
-                // can't tell a successful eat from a blocked one; a lower stack count can.
+                // can't tell a successful eat from a blocked one; a lower stack count can. Checking
+                // this exact item (not just "a stack of this food"), the same way UseItem itself
+                // checks inventory.ContainsItem(item) (Humanoid.cs:923), avoids a false failure when
+                // another stack of the same food also sits in the bag.
                 int stackBefore = item.m_stack;
                 p.UseItem(p.GetInventory(), item, true);
-                ItemDrop.ItemData after = FindInBag(p, foodId);
-                bool consumed = after == null || after.m_stack < stackBefore;
+                bool consumed = !p.GetInventory().ContainsItem(item) || item.m_stack < stackBefore;
                 if (!consumed)
                     break; // still in the bag at the same count: the eat didn't take (status effect conflict, etc.)
             }

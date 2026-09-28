@@ -88,5 +88,54 @@ namespace Larder.Tests
             Assert.Equal("a,b,c", Ids(next));
             Assert.Equal(next.Count, next.Select(f => f.Id).Distinct().Count());
         }
+
+        [Fact]
+        public void CountsAndEatsPastAnEarlierPlannedFoodThatsOnlyInAChest()
+        {
+            // A is planned and already active (full); X is an other food, over half. One free slot.
+            // B is planned but only in a chest (not in inBag): it must not reserve the free slot
+            // ahead of C, which is planned and in the bag.
+            var plan = new[] { F("A"), F("B"), F("C") };
+            var active = new[]
+            {
+                new ActiveFood("A", 1200, 1200),
+                new ActiveFood("X", 700, 1200)
+            };
+            var inBag = new HashSet<string> { "A", "C" };
+            List<FoodStats> next = EatOrder.Next(plan, active, inBag, 1f);
+            Assert.Equal("C", Ids(next));
+        }
+
+        [Fact]
+        public void RefreshNowBeatsEatNowRegardlessOfPlanOrder()
+        {
+            var plan = new[] { F("N"), F("A") };
+            var active = new[] { new ActiveFood("A", 500, 1200) }; // planned, under half: refreshable
+            var inBag = new HashSet<string> { "N", "A" };
+            List<FoodStats> next = EatOrder.Next(plan, active, inBag, 1f);
+            Assert.Equal("A,N", Ids(next));
+        }
+
+        [Fact]
+        public void EvictsTheGloballyMostDepletedActiveFoodRegardlessOfListOrder()
+        {
+            // Full stomach: X, P, Y are all refreshable, and the most depleted (Y) is last in the
+            // active list, not first. P is planned but not in the bag, so it can never be
+            // refreshed; eating N1 must evict Y (the true global minimum, matching
+            // Player.GetMostDepletedFood), not X. If it wrongly evicted X instead, Y (100, still
+            // under P's 400) would remain and let N2 through as EatNow; evicting Y correctly
+            // leaves X (590) as the only other food, which is over P's target, so N2 stays
+            // permanently blocked (RefreshFirst) this click, since P can't be refreshed.
+            var plan = new[] { F("P"), F("N1"), F("N2") };
+            var active = new[]
+            {
+                new ActiveFood("X", 590, 1200),
+                new ActiveFood("P", 400, 1200),
+                new ActiveFood("Y", 100, 1200)
+            };
+            var inBag = new HashSet<string> { "N1", "N2" };
+            List<FoodStats> next = EatOrder.Next(plan, active, inBag, 1f);
+            Assert.Equal("N1", Ids(next));
+        }
     }
 }

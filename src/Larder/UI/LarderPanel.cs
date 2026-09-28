@@ -202,6 +202,9 @@ namespace Larder.UI
             chLayout.childControlHeight = true;
             chLayout.childForceExpandWidth = false;
             chLayout.childForceExpandHeight = false;
+            // Fixed height so the rows below don't shift up/down as the Eat N button shows or hides.
+            var chSize = comboHeader.gameObject.AddComponent<LayoutElement>();
+            chSize.minHeight = chSize.preferredHeight = 28f;
 
             TextMeshProUGUI comboHeaderText = UiUtil.Text(comboHeader, "ComboHeaderText", 17f, TextAlignmentOptions.Left);
             comboHeaderText.text = "<b>Best combo</b>";
