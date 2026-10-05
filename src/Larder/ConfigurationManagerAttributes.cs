@@ -6,6 +6,4 @@ internal sealed class ConfigurationManagerAttributes
 {
     public int? Order;
     public bool? IsAdvanced;
-    public bool? Browsable;
-    public bool? ReadOnly;
 }

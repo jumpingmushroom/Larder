@@ -19,7 +19,6 @@ namespace Larder.Core
         public SourceKind Kind;
         public string Label;
         public float Distance;
-        public int Count;
     }
 
     internal sealed class Snapshot
@@ -78,7 +77,7 @@ namespace Larder.Core
                     continue;
                 if (!snap.FoodSources.ContainsKey(a.Id))
                     snap.Pool.Add(f);
-                AddFood(snap, a.Id, new Source { Kind = SourceKind.Eaten, Label = "eaten", Distance = -1f, Count = 0 });
+                AddFood(snap, a.Id, new Source { Kind = SourceKind.Eaten, Label = "eaten", Distance = -1f });
             }
         }
 
@@ -97,8 +96,7 @@ namespace Larder.Core
                     {
                         Kind = SourceKind.Feast,
                         Label = FoodCatalog.ItemName(piece.m_name) + " " + Meters(d) + " (" + left + " left)",
-                        Distance = d,
-                        Count = left
+                        Distance = d
                     });
                 }
                 return;
@@ -142,9 +140,9 @@ namespace Larder.Core
 
                 string food;
                 if (FoodCatalog.FeastFood.TryGetValue(id, out food))
-                    AddFood(snap, food, new Source { Kind = SourceKind.FeastItem, Label = label + ", place then eat", Distance = d, Count = item.m_stack });
+                    AddFood(snap, food, new Source { Kind = SourceKind.FeastItem, Label = label + ", place then eat", Distance = d });
                 else if (FoodCatalog.Foods.ContainsKey(id))
-                    AddFood(snap, id, new Source { Kind = kind, Label = label, Distance = d, Count = item.m_stack });
+                    AddFood(snap, id, new Source { Kind = kind, Label = label, Distance = d });
             }
         }
 

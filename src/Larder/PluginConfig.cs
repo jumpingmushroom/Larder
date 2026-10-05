@@ -28,9 +28,9 @@ namespace Larder
         // Logging
         public static ConfigEntry<bool> Verbose;
 
-        private static ConfigurationManagerAttributes Attr(int order, bool advanced = false, bool browsable = true)
+        private static ConfigurationManagerAttributes Attr(int order, bool advanced = false)
         {
-            return new ConfigurationManagerAttributes { Order = order, IsAdvanced = advanced, Browsable = browsable };
+            return new ConfigurationManagerAttributes { Order = order, IsAdvanced = advanced };
         }
 
         public static void Bind(ConfigFile cfg)
