@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1
+
+- Turning Enabled or PanelOpen off in a config manager now hides the panel straight away, even
+  with the inventory open.
+- A failed Eat click is logged once instead of throwing into the game's UI.
+- Internal cleanup: one rule for which foods count as "in your bag", shared cook-planning code.
+
 ## 0.2.0
 
 - Eat N button next to Best combo: eats every planned food it safely can from your bag in one
