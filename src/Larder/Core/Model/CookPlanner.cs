@@ -144,31 +144,10 @@ namespace Larder.Core.Model
 
             if (p.AnyOneInput && p.Inputs.Count > 1)
             {
-                CookStep bestInput = null;
-                CookPlan bestSub = null;
-                Dictionary<string, int> bestStock = null;
-
-                foreach (Ingredient ing in p.Inputs)
-                {
-                    var s = new Dictionary<string, int>(stock);
-                    var sub = new CookPlan();
-                    CookStep input = Supply(ing.ItemId, ing.Amount * step.Crafts, ctx, s, depth, sub);
-                    if (bestSub == null || Better(sub, bestSub))
-                    {
-                        bestInput = input;
-                        bestSub = sub;
-                        bestStock = s;
-                    }
-                }
-
-                if (bestInput != null)
-                {
-                    stock.Clear();
-                    foreach (KeyValuePair<string, int> kv in bestStock)
-                        stock[kv.Key] = kv.Value;
-                    plan.Merge(bestSub);
-                    step.Inputs.Add(bestInput);
-                }
+                CookStep input = Best(p.Inputs,
+                    (ing, s, sub) => Supply(ing.ItemId, ing.Amount * step.Crafts, ctx, s, depth, sub), stock, plan);
+                if (input != null)
+                    step.Inputs.Add(input);
             }
             else
             {
@@ -192,38 +171,53 @@ namespace Larder.Core.Model
 
             if (shortfall > 0 && depth < ctx.MaxDepth && !ctx.Path.Contains(itemId))
             {
-                CookStep bestStep = null;
-                CookPlan bestSub = null;
-                Dictionary<string, int> bestStock = null;
                 ctx.Path.Add(itemId);
-                foreach (Producer p in ctx.Producers.For(itemId))
-                {
-                    var s = new Dictionary<string, int>(stock);
-                    var sub = new CookPlan();
-                    CookStep made = Make(itemId, shortfall, p, ctx, s, depth + 1, sub);
-                    if (bestSub == null || Better(sub, bestSub))
-                    {
-                        bestStep = made;
-                        bestSub = sub;
-                        bestStock = s;
-                    }
-                }
+                CookStep made = Best(ctx.Producers.For(itemId),
+                    (p, s, sub) => Make(itemId, shortfall, p, ctx, s, depth + 1, sub), stock, plan);
                 ctx.Path.Remove(itemId);
-                if (bestStep != null)
+                if (made != null)
                 {
-                    stock.Clear();
-                    foreach (KeyValuePair<string, int> kv in bestStock)
-                        stock[kv.Key] = kv.Value;
-                    plan.Merge(bestSub);
-                    bestStep.Need = need;
-                    bestStep.FromStock = take;
-                    return bestStep;
+                    made.Need = need;
+                    made.FromStock = take;
+                    return made;
                 }
             }
 
             if (shortfall > 0)
                 plan.AddMissing(itemId, shortfall);
             return new CookStep { ItemId = itemId, Need = need, FromStock = take, Missing = shortfall };
+        }
+
+        /// <summary>
+        /// Tries each option against its own copy of the stock and keeps the Better plan, then
+        /// commits that option's stock use and missing items to stock and plan. Null, with nothing
+        /// committed, when there are no options.
+        /// </summary>
+        private static CookStep Best<T>(IEnumerable<T> options, Func<T, Dictionary<string, int>, CookPlan, CookStep> attempt,
+            Dictionary<string, int> stock, CookPlan plan)
+        {
+            CookStep bestStep = null;
+            CookPlan bestSub = null;
+            Dictionary<string, int> bestStock = null;
+            foreach (T option in options)
+            {
+                var s = new Dictionary<string, int>(stock);
+                var sub = new CookPlan();
+                CookStep step = attempt(option, s, sub);
+                if (bestSub == null || Better(sub, bestSub))
+                {
+                    bestStep = step;
+                    bestSub = sub;
+                    bestStock = s;
+                }
+            }
+            if (bestSub == null)
+                return null;
+            stock.Clear();
+            foreach (KeyValuePair<string, int> kv in bestStock)
+                stock[kv.Key] = kv.Value;
+            plan.Merge(bestSub);
+            return bestStep;
         }
     }
 }

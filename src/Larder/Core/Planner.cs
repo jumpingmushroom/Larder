@@ -37,7 +37,7 @@ namespace Larder.Core
                 List<Piece> nearby = NearbyPieces.Collect(player.transform.position, radius);
                 view.Snapshot = StockScanner.Take(player, nearby);
                 view.Stations = StationScanner.Scan(player.transform.position, radius, nearby);
-                view.BagFoods = BagFoodIds(view.Snapshot);
+                view.BagFoods = StockScanner.BagFoodIds(player.GetInventory());
                 List<ActiveFood> active = ActiveFoods.Read(player);
                 view.Active = active;
                 StockScanner.AddEaten(view.Snapshot, active);
@@ -65,25 +65,6 @@ namespace Larder.Core
             if (PluginConfig.Verbose.Value)
                 LarderPlugin.Log.LogInfo("Larder: planned in " + view.Millis.ToString("0.00") + " ms");
             return view;
-        }
-
-        /// <summary>Shared names with a bag source: eatable directly (a feast item's food only has a
-        /// FeastItem source, per StockScanner.AddInventory).</summary>
-        private static HashSet<string> BagFoodIds(Snapshot snapshot)
-        {
-            var ids = new HashSet<string>();
-            foreach (KeyValuePair<string, List<Source>> kv in snapshot.FoodSources)
-            {
-                foreach (Source s in kv.Value)
-                {
-                    if (s.Kind == SourceKind.Bag)
-                    {
-                        ids.Add(kv.Key);
-                        break;
-                    }
-                }
-            }
-            return ids;
         }
     }
 }

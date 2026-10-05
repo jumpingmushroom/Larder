@@ -81,6 +81,23 @@ namespace Larder.Core
             }
         }
 
+        /// <summary>Shared names of foods in the inventory that can be eaten straight from it: food,
+        /// and not a feast item (that has to be placed first). Planner and Eater both use this, so the
+        /// "Eat N" label and what Eat N actually eats follow the same rule.</summary>
+        public static HashSet<string> BagFoodIds(Inventory inv)
+        {
+            var ids = new HashSet<string>();
+            foreach (ItemDrop.ItemData item in inv.GetAllItems())
+            {
+                if (item == null || item.m_shared == null)
+                    continue;
+                string id = item.m_shared.m_name;
+                if (FoodCatalog.Foods.ContainsKey(id) && !FoodCatalog.FeastFood.ContainsKey(id))
+                    ids.Add(id);
+            }
+            return ids;
+        }
+
         private static void AddPiece(Snapshot snap, Piece piece, Vector3 at, long me)
         {
             float d = Vector3.Distance(piece.transform.position, at);

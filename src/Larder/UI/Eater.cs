@@ -71,7 +71,7 @@ namespace Larder.UI
             for (int i = 0; i < EatOrder.MaxEats; i++)
             {
                 List<ActiveFood> active = ActiveFoods.Read(p);
-                ISet<string> inBag = BagFoods(p);
+                ISet<string> inBag = StockScanner.BagFoodIds(p.GetInventory());
                 List<FoodStats> next = EatOrder.Next(plan, active, inBag, Game.m_foodRate);
                 if (next.Count == 0)
                     break;
@@ -91,21 +91,6 @@ namespace Larder.UI
                 if (!consumed)
                     break; // still in the bag at the same count: the eat didn't take (status effect conflict, etc.)
             }
-        }
-
-        /// <summary>Shared names of bag items that are food and not feast items (same rule as FindInBag).</summary>
-        private static HashSet<string> BagFoods(Player p)
-        {
-            var set = new HashSet<string>();
-            foreach (ItemDrop.ItemData item in p.GetInventory().GetAllItems())
-            {
-                if (item == null || item.m_shared == null)
-                    continue;
-                string id = item.m_shared.m_name;
-                if (FoodCatalog.Foods.ContainsKey(id) && !FoodCatalog.FeastFood.ContainsKey(id))
-                    set.Add(id);
-            }
-            return set;
         }
     }
 }
