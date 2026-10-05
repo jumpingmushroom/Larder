@@ -41,37 +41,35 @@ namespace Larder.UI
             get { return _root != null && _root.gameObject.activeSelf && InventoryGui.IsVisible(); }
         }
 
-        internal static ComboRow[] ComboRows
-        {
-            get { return Rows; }
-        }
-
-        internal static TextMeshProUGUI CookText
-        {
-            get { return _cook; }
-        }
-
         public static void OnShow(InventoryGui gui)
         {
             if (_root == null)
                 Build(gui);
             if (_root == null)
                 return;
-            bool enabled = PluginConfig.Enabled.Value;
-            _toggle.gameObject.SetActive(enabled);
-            _root.gameObject.SetActive(enabled && PluginConfig.PanelOpen.Value);
             _settleUntil = Time.unscaledTime + SettleTime;
-            ApplyLayout();
-            if (Visible)
-                Runtime.Refresh();
+            ApplyOpen();
         }
 
+        /// <summary>The PanelOpen change this triggers is applied by ApplyOpen (hooked in BuildInternal).</summary>
         public static void Toggle()
         {
             if (_root == null)
                 return;
             PluginConfig.PanelOpen.Value = !PluginConfig.PanelOpen.Value;
-            _root.gameObject.SetActive(PluginConfig.PanelOpen.Value);
+        }
+
+        /// <summary>Shows or hides the toggle and panel from Enabled and PanelOpen. Runs on Show and
+        /// whenever either setting changes, including from a config manager while the inventory is open.</summary>
+        private static void ApplyOpen()
+        {
+            if (_root == null)
+                return;
+            bool enabled = PluginConfig.Enabled.Value;
+            if (_toggle != null)
+                _toggle.gameObject.SetActive(enabled);
+            _root.gameObject.SetActive(enabled && PluginConfig.PanelOpen.Value);
+            ApplyLayout();
             if (Visible)
                 Runtime.Refresh();
         }
@@ -231,6 +229,8 @@ namespace Larder.UI
             if (!_hooked)
             {
                 _hooked = true;
+                PluginConfig.Enabled.SettingChanged += (s, e) => ApplyOpen();
+                PluginConfig.PanelOpen.SettingChanged += (s, e) => ApplyOpen();
                 PluginConfig.Scale.SettingChanged += (s, e) => ApplyLayout();
                 PluginConfig.OffsetX.SettingChanged += (s, e) => ApplyLayout();
                 PluginConfig.OffsetY.SettingChanged += (s, e) => ApplyLayout();

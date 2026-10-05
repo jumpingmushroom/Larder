@@ -29,13 +29,21 @@ namespace Larder.UI
             return item != null && p.CanEat(item, false);
         }
 
+        /// <summary>A row's Eat button; never throws out into Unity's event system.</summary>
         public static void Eat(string foodId)
         {
-            Player p = Player.m_localPlayer;
-            ItemDrop.ItemData item = FindInBag(p, foodId);
-            if (item == null)
-                return;
-            p.UseItem(p.GetInventory(), item, true);
+            try
+            {
+                Player p = Player.m_localPlayer;
+                ItemDrop.ItemData item = FindInBag(p, foodId);
+                if (item == null)
+                    return;
+                p.UseItem(p.GetInventory(), item, true);
+            }
+            catch (Exception e)
+            {
+                LarderPlugin.WarnOnce("Larder: eat failed", e);
+            }
             Runtime.Refresh();
         }
 
