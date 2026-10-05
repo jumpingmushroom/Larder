@@ -43,6 +43,11 @@ namespace Larder.Core.Model
         {
             return a.CompareTo(b) > 0;
         }
+
+        public static bool operator <(Score a, Score b)
+        {
+            return a.CompareTo(b) < 0;
+        }
     }
 
     /// <summary>
